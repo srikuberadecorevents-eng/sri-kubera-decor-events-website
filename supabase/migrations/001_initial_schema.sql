@@ -18,6 +18,20 @@ create table if not exists public.profiles (
   created_at  timestamptz default now()
 );
 
+-- Helper: Check if current user is an admin without triggering RLS recursion
+create or replace function public.is_admin()
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid() and role = 'admin'
+  );
+$$;
+
 alter table public.profiles enable row level security;
 
 -- Users can read/update their own profile
@@ -32,21 +46,11 @@ create policy "profiles: own update"
 -- Admin can read/update all profiles
 create policy "profiles: admin read all"
   on public.profiles for select
-  using (
-    exists (
-      select 1 from public.profiles p
-      where p.id = auth.uid() and p.role = 'admin'
-    )
-  );
+  using (public.is_admin());
 
 create policy "profiles: admin update all"
   on public.profiles for update
-  using (
-    exists (
-      select 1 from public.profiles p
-      where p.id = auth.uid() and p.role = 'admin'
-    )
-  );
+  using (public.is_admin());
 
 -- Allow insert for newly registered users (trigger handles this)
 create policy "profiles: insert own"
@@ -70,12 +74,7 @@ create policy "categories: public read"
 
 create policy "categories: admin write"
   on public.categories for all
-  using (
-    exists (
-      select 1 from public.profiles p
-      where p.id = auth.uid() and p.role = 'admin'
-    )
-  );
+  using (public.is_admin());
 
 -- ----------------------------------------------------------------
 -- 3. DESIGNS
@@ -99,12 +98,7 @@ create policy "designs: public read"
 
 create policy "designs: admin write"
   on public.designs for all
-  using (
-    exists (
-      select 1 from public.profiles p
-      where p.id = auth.uid() and p.role = 'admin'
-    )
-  );
+  using (public.is_admin());
 
 -- ----------------------------------------------------------------
 -- 4. BOOKINGS (enquiries)
@@ -135,22 +129,12 @@ create policy "bookings: own insert"
 -- Admin can read all bookings
 create policy "bookings: admin read all"
   on public.bookings for select
-  using (
-    exists (
-      select 1 from public.profiles p
-      where p.id = auth.uid() and p.role = 'admin'
-    )
-  );
+  using (public.is_admin());
 
 -- Admin can update all bookings (status, admin_notes)
 create policy "bookings: admin update all"
   on public.bookings for update
-  using (
-    exists (
-      select 1 from public.profiles p
-      where p.id = auth.uid() and p.role = 'admin'
-    )
-  );
+  using (public.is_admin());
 
 -- ----------------------------------------------------------------
 -- 5. SERVICES
@@ -171,12 +155,7 @@ create policy "services: public read"
 
 create policy "services: admin write"
   on public.services for all
-  using (
-    exists (
-      select 1 from public.profiles p
-      where p.id = auth.uid() and p.role = 'admin'
-    )
-  );
+  using (public.is_admin());
 
 -- ----------------------------------------------------------------
 -- 6. BUSINESS SETTINGS (single row)
@@ -199,12 +178,7 @@ create policy "business_settings: public read"
 
 create policy "business_settings: admin write"
   on public.business_settings for all
-  using (
-    exists (
-      select 1 from public.profiles p
-      where p.id = auth.uid() and p.role = 'admin'
-    )
-  );
+  using (public.is_admin());
 
 -- ----------------------------------------------------------------
 -- 7. ENQUIRY ID GENERATOR
@@ -295,10 +269,7 @@ create policy "receipts: admin read all"
   on storage.objects for select
   using (
     bucket_id = 'receipts'
-    and exists (
-      select 1 from public.profiles p
-      where p.id = auth.uid() and p.role = 'admin'
-    )
+    and public.is_admin()
   );
 
 -- ----------------------------------------------------------------
