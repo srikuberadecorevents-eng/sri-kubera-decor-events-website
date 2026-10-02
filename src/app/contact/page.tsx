@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useState } from "react";
 import toast from "react-hot-toast";
+import PostRequirementCard from "@/components/ui/PostRequirementCard";
 
 const schema = z.object({
   name: z.string().min(2, "Name is required"),
@@ -104,43 +105,9 @@ export default function ContactPage() {
             </div>
           </div>
 
-          {/* Contact form */}
-          <div className="card p-8">
-            <h2 className="font-serif font-bold text-navy-900 text-lg mb-1">Send a Message</h2>
-            <p className="text-navy-500 text-sm mb-6">
-              Fill in the form and we will open WhatsApp with your message pre-filled — no login required.
-            </p>
-
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
-              <div>
-                <label htmlFor="contact-name" className="input-label">Your Name</label>
-                <input id="contact-name" type="text" placeholder="Ravi Kumar" className="input-field" {...register("name")} />
-                {errors.name && <p className="input-error">{errors.name.message}</p>}
-              </div>
-
-              <div>
-                <label htmlFor="contact-phone" className="input-label">Phone Number</label>
-                <input id="contact-phone" type="tel" placeholder="9876543210" className="input-field" {...register("phone")} />
-                {errors.phone && <p className="input-error">{errors.phone.message}</p>}
-              </div>
-
-              <div>
-                <label htmlFor="contact-message" className="input-label">Message</label>
-                <textarea
-                  id="contact-message"
-                  rows={5}
-                  placeholder="Tell us about your event — occasion, date, expected guest count, budget..."
-                  className="input-field resize-none"
-                  {...register("message")}
-                />
-                {errors.message && <p className="input-error">{errors.message.message}</p>}
-              </div>
-
-              <button type="submit" disabled={loading} className="btn-primary w-full py-3.5 justify-center text-base">
-                {loading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-                {loading ? "Opening WhatsApp..." : "Send via WhatsApp"}
-              </button>
-            </form>
+          {/* Requirement Form */}
+          <div className="flex justify-center items-start">
+            <PostRequirementCard className="max-w-xl shadow-xl w-full" />
           </div>
         </div>
       </div>

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import DesignCard from "@/components/ui/DesignCard";
+import PostRequirementCard from "@/components/ui/PostRequirementCard";
 
 export const metadata: Metadata = {
   title: "Sri Kubera Decor & Events — We Decor Your Dreams",
@@ -72,31 +73,39 @@ export default async function HomePage() {
           }}
         />
 
-        <div className="relative page-container text-center py-24">
-          <div className="animate-slide-up">
-            <p className="text-gold-400 text-sm md:text-base font-sans tracking-[0.25em] uppercase mb-4">
-              Puducherry&apos;s Trusted Decoration Studio
-            </p>
-            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-serif font-bold text-white leading-tight mb-6">
-              We Decor<br />
-              <span className="text-gradient-gold">Your Dreams</span>
-            </h1>
-            <p className="text-cream-200 text-base md:text-xl max-w-2xl mx-auto leading-relaxed mb-10">
-              Sri Kubera Decor &amp; Events — crafting magical atmospheres for
-              weddings, birthdays, surprise parties, and corporate celebrations.
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link href="/gallery" className="btn-primary px-8 py-4 text-base">
-                Browse Our Gallery
-                <ArrowRight size={18} />
-              </Link>
-              <a
-                href="tel:7373876879"
-                className="inline-flex items-center gap-2 px-8 py-4 rounded-lg border-2 border-cream-300/50 text-cream-200 hover:border-gold-400 hover:text-gold-400 font-semibold text-base transition-all duration-200"
-              >
-                <Phone size={18} />
-                Call Us Now
-              </a>
+        <div className="relative page-container py-16 sm:py-20 lg:py-24">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 items-center">
+            {/* Left Column: Brand Message & CTA */}
+            <div className="lg:col-span-7 text-center lg:text-left animate-slide-up">
+              <p className="text-gold-400 text-sm md:text-base font-sans tracking-[0.25em] uppercase mb-4">
+                Puducherry&apos;s Trusted Decoration Studio
+              </p>
+              <h1 className="text-4xl sm:text-5xl md:text-6xl font-serif font-bold text-white leading-tight mb-6">
+                We Decor<br />
+                <span className="text-gradient-gold">Your Dreams</span>
+              </h1>
+              <p className="text-cream-200 text-base md:text-lg max-w-xl mx-auto lg:mx-0 leading-relaxed mb-8">
+                Sri Kubera Decor &amp; Events — crafting magical atmospheres for
+                weddings, birthdays, surprise parties, and corporate celebrations.
+              </p>
+              <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
+                <Link href="/gallery" className="btn-primary px-8 py-3.5 text-base">
+                  Browse Our Gallery
+                  <ArrowRight size={18} />
+                </Link>
+                <a
+                  href="tel:7373876879"
+                  className="inline-flex items-center gap-2 px-7 py-3.5 rounded-lg border-2 border-cream-300/50 text-cream-200 hover:border-gold-400 hover:text-gold-400 font-semibold text-base transition-all duration-200"
+                >
+                  <Phone size={18} />
+                  Call Us Now
+                </a>
+              </div>
+            </div>
+
+            {/* Right Column: Post Your Requirement Form */}
+            <div className="lg:col-span-5 flex justify-center lg:justify-end">
+              <PostRequirementCard />
             </div>
           </div>
         </div>
