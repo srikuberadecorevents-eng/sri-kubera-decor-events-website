@@ -2,11 +2,12 @@
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Eye, EyeOff, Loader2, Mail, Lock } from "lucide-react";
+import { Eye, EyeOff, Loader2, Mail, Lock, ArrowLeft } from "lucide-react";
 import toast from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
 
@@ -56,53 +57,73 @@ function LoginForm() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
       <div>
-        <label htmlFor="login-email" className="input-label">Email address</label>
+        <label htmlFor="login-email" className="input-label">
+          Email address
+        </label>
         <div className="relative">
-          <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-navy-400" />
+          <Mail
+            size={16}
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-navy-400 pointer-events-none"
+            aria-hidden="true"
+          />
           <input
             id="login-email"
             type="email"
             autoComplete="email"
             placeholder="you@example.com"
             className="input-field pl-10"
+            aria-invalid={errors.email ? "true" : "false"}
+            aria-describedby={errors.email ? "login-email-err" : undefined}
             {...register("email")}
           />
         </div>
-        {errors.email && <p className="input-error">{errors.email.message}</p>}
+        {errors.email && (
+          <p id="login-email-err" className="input-error">{errors.email.message}</p>
+        )}
       </div>
 
       <div>
-        <label htmlFor="login-password" className="input-label">Password</label>
+        <label htmlFor="login-password" className="input-label">
+          Password
+        </label>
         <div className="relative">
-          <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-navy-400" />
+          <Lock
+            size={16}
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-navy-400 pointer-events-none"
+            aria-hidden="true"
+          />
           <input
             id="login-password"
             type={showPass ? "text" : "password"}
             autoComplete="current-password"
             placeholder="Your password"
-            className="input-field pl-10 pr-10"
+            className="input-field pl-10 pr-11"
+            aria-invalid={errors.password ? "true" : "false"}
+            aria-describedby={errors.password ? "login-pw-err" : undefined}
             {...register("password")}
           />
           <button
             type="button"
             onClick={() => setShowPass(!showPass)}
-            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-navy-400 hover:text-navy-700"
+            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-navy-400 hover:text-navy-700 transition-colors"
             aria-label={showPass ? "Hide password" : "Show password"}
           >
             {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
         </div>
-        {errors.password && <p className="input-error">{errors.password.message}</p>}
+        {errors.password && (
+          <p id="login-pw-err" className="input-error">{errors.password.message}</p>
+        )}
       </div>
 
       <button
         type="submit"
         disabled={loading}
-        className="btn-primary w-full py-3.5 text-base justify-center"
+        className="btn-primary w-full py-4 text-base justify-center"
       >
         {loading ? (
           <>
-            <Loader2 size={18} className="animate-spin" />
+            <Loader2 size={18} className="animate-spin" aria-hidden="true" />
             Signing in...
           </>
         ) : (
@@ -115,30 +136,103 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen bg-cream-100 flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-block mb-6">
-            <h1 className="text-2xl font-serif font-bold text-navy-900">Sri Kubera</h1>
-            <p className="text-gold-600 text-xs tracking-widest uppercase">Decor &amp; Events</p>
-          </Link>
-          <h2 className="text-2xl font-serif font-bold text-navy-900 mb-1">Welcome back</h2>
-          <p className="text-navy-500 text-sm">
-            Sign in to browse designs and manage your enquiries.
+    <div className="min-h-screen flex">
+      {/* Left: image panel (hidden on mobile) */}
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
+        <Image
+          src="/assets/90000.jpeg"
+          alt="Stunning stage decoration by Sri Kubera Decor & Events"
+          fill
+          priority
+          sizes="50vw"
+          className="object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-br from-navy-950/80 to-navy-900/60" />
+        <div className="absolute inset-0 flex flex-col justify-end p-12">
+          <p className="section-label text-gold-400 mb-3">Sri Kubera Decor &amp; Events</p>
+          <h2
+            className="text-4xl font-bold text-white leading-tight mb-4"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            We Decor<br />
+            <span className="text-gradient-gold">Your Dreams</span>
+          </h2>
+          <p className="text-ivory-300 text-sm leading-relaxed max-w-xs">
+            Premium stage decorations for weddings, birthdays, and every
+            celebration in Puducherry.
           </p>
         </div>
+      </div>
 
-        <div className="card p-8">
-          <Suspense fallback={<div className="space-y-5 animate-pulse">{[...Array(3)].map((_, i) => <div key={i} className="h-12 bg-cream-200 rounded" />)}</div>}>
-            <LoginForm />
-          </Suspense>
+      {/* Right: form panel */}
+      <div className="flex-1 flex items-center justify-center px-6 py-16 bg-ivory-50">
+        <div className="w-full max-w-md">
+          {/* Back to home */}
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-navy-500 hover:text-navy-800 text-sm mb-10 transition-colors"
+          >
+            <ArrowLeft size={15} />
+            Back to home
+          </Link>
 
-          <p className="text-center text-sm text-navy-500 mt-6">
-            Don&apos;t have an account?{" "}
-            <Link href="/signup" className="text-gold-600 font-semibold hover:underline">
-              Create one free
+          {/* Brand */}
+          <div className="mb-8">
+            <Link href="/" className="inline-block mb-5">
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-9 h-9 rounded-full flex items-center justify-center"
+                  style={{ background: "linear-gradient(135deg, var(--color-gold-500), var(--color-gold-300))" }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <polygon
+                      points="8,1 9.9,6.2 15.5,6.2 11,9.5 12.9,14.7 8,11.4 3.1,14.7 5,9.5 0.5,6.2 6.1,6.2"
+                      fill="var(--color-navy-900)"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <p className="font-bold text-navy-900 leading-none" style={{ fontFamily: "var(--font-display)" }}>
+                    Sri Kubera
+                  </p>
+                  <p className="text-[10px] text-gold-600 font-semibold tracking-[0.18em] uppercase mt-0.5">
+                    Decor &amp; Events
+                  </p>
+                </div>
+              </div>
             </Link>
-          </p>
+            <h1
+              className="text-3xl font-bold text-navy-900 mb-1.5"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
+              Welcome back
+            </h1>
+            <p className="text-navy-500 text-sm">
+              Sign in to browse designs and manage your enquiries.
+            </p>
+          </div>
+
+          {/* Form card */}
+          <div className="card p-8">
+            <Suspense
+              fallback={
+                <div className="space-y-5 animate-pulse">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="h-12 bg-ivory-200 rounded-lg" />
+                  ))}
+                </div>
+              }
+            >
+              <LoginForm />
+            </Suspense>
+
+            <p className="text-center text-sm text-navy-500 mt-6">
+              Don&apos;t have an account?{" "}
+              <Link href="/signup" className="text-gold-600 font-semibold hover:underline">
+                Create one free
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { INITIAL_DESIGNS } from "@/data/initialDesigns";
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,14 +22,25 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch the design
-    const { data: design, error: designError } = await supabase
+    let designTitle = "";
+    let validDesignId: string | null = null;
+
+    const { data: design } = await supabase
       .from("designs")
       .select("id, title")
       .eq("id", design_id)
-      .single();
+      .maybeSingle();
 
-    if (designError || !design) {
-      return NextResponse.json({ error: "Design not found" }, { status: 404 });
+    if (design) {
+      designTitle = design.title;
+      validDesignId = design.id;
+    } else {
+      const fallback = INITIAL_DESIGNS.find((d) => d.id === design_id);
+      if (!fallback) {
+        return NextResponse.json({ error: "Design not found" }, { status: 404 });
+      }
+      designTitle = fallback.title;
+      validDesignId = null;
     }
 
     // Fetch user profile
@@ -42,12 +54,9 @@ export async function POST(request: NextRequest) {
     const { data: enquiryIdData, error: fnError } = await supabase
       .rpc("generate_enquiry_id");
 
-    if (fnError || !enquiryIdData) {
-      console.error("Enquiry ID generation error:", fnError);
-      return NextResponse.json({ error: "Failed to generate enquiry ID" }, { status: 500 });
-    }
-
-    const enquiry_id = enquiryIdData as string;
+    // Fallback ID generator in case RPC function isn't yet migrated
+    const enquiry_id =
+      enquiryIdData || `A${Math.floor(1000 + Math.random() * 9000)}`;
 
     // Insert booking
     const { data: booking, error: bookingError } = await supabase
@@ -55,7 +64,8 @@ export async function POST(request: NextRequest) {
       .insert({
         enquiry_id,
         user_id: user.id,
-        design_id,
+        design_id: validDesignId,
+        admin_notes: validDesignId ? null : `Enquired design: ${designTitle}`,
         status: "pending",
       })
       .select()
@@ -118,7 +128,7 @@ export async function POST(request: NextRequest) {
       <div class="id">${enquiry_id}</div>
     </div>
     <p class="detail">
-      <strong>Design:</strong> ${design.title}<br />
+      <strong>Design:</strong> ${designTitle}<br />
       <strong>Date:</strong> ${bookingDate}<br />
       <strong>Status:</strong> Pending Review
     </p>
@@ -145,7 +155,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       enquiry_id,
-      design_title: design.title,
+      design_title: designTitle,
       booking_id: booking.id,
     });
   } catch (error) {
