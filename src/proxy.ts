@@ -2,6 +2,20 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  const isAdminRoute = pathname.startsWith("/admin");
+  const isCustomerRoute =
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/enquiries") ||
+    pathname.startsWith("/profile");
+  const isAuthPage = pathname === "/login" || pathname === "/signup";
+
+  // Fast path: bypass all auth checks for public pages (/, /gallery, /services, /about, /contact)
+  if (!isAdminRoute && !isCustomerRoute && !isAuthPage) {
+    return NextResponse.next();
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -29,10 +43,8 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { pathname } = request.nextUrl;
-
   // 1. Admin route protection
-  if (pathname.startsWith("/admin")) {
+  if (isAdminRoute) {
     // Add noindex, nofollow for all /admin routes
     supabaseResponse.headers.set("X-Robots-Tag", "noindex, nofollow");
 

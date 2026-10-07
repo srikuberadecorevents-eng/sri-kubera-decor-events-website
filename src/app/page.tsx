@@ -65,8 +65,39 @@ const whyUsPoints = [
 export default async function HomePage() {
   const supabase = await createClient();
 
-  // 1. Fetch site_content (hero, about, stats, announcement)
-  const { data: siteContentRows } = await supabase.from("site_content").select("*");
+  // Fetch all initial data concurrently in parallel
+  const [
+    { data: siteContentRows },
+    { data: businessSettings },
+    { data: publishedDesigns },
+    { data: publishedTestimonials },
+    { data: activeCategories },
+  ] = await Promise.all([
+    supabase.from("site_content").select("*"),
+    supabase.from("business_settings").select("*").limit(1).maybeSingle(),
+    supabase
+      .from("designs")
+      .select("*, categories(id, name, created_at)")
+      .eq("status", "published")
+      .is("deleted_at", null)
+      .order("is_featured", { ascending: false })
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: false })
+      .limit(6),
+    supabase
+      .from("testimonials")
+      .select("*")
+      .eq("is_published", true)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("categories")
+      .select("*")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true })
+      .limit(4),
+  ]);
+
   const siteContent: Record<string, any> = {};
   if (siteContentRows) {
     for (const row of siteContentRows) {
@@ -103,42 +134,8 @@ export default async function HomePage() {
     dynamicStats.push({ value: statsData.happy_customers, suffix: "+", label: "Happy Customers" });
   }
 
-  // 2. Fetch business settings
-  const { data: businessSettings } = await supabase
-    .from("business_settings")
-    .select("*")
-    .limit(1)
-    .maybeSingle();
-
   const businessPhone = businessSettings?.phone || "7373876879";
   const businessWa = businessSettings?.whatsapp || "917373876879";
-
-  // 3. Fetch published designs only (status = published, deleted_at is null)
-  const { data: publishedDesigns } = await supabase
-    .from("designs")
-    .select("*, categories(id, name, created_at)")
-    .eq("status", "published")
-    .is("deleted_at", null)
-    .order("is_featured", { ascending: false })
-    .order("sort_order", { ascending: true })
-    .order("created_at", { ascending: false })
-    .limit(6);
-
-  // 4. Fetch published testimonials only
-  const { data: publishedTestimonials } = await supabase
-    .from("testimonials")
-    .select("*")
-    .eq("is_published", true)
-    .order("sort_order", { ascending: true })
-    .order("created_at", { ascending: false });
-
-  // 5. Fetch active categories for occasion showcase
-  const { data: activeCategories } = await supabase
-    .from("categories")
-    .select("*")
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true })
-    .limit(4);
 
   return (
     <>
