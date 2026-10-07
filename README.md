@@ -1,155 +1,178 @@
-# Sri Kubera Decor & Events
+# Sri Kubera Decor & Events — Web Application & Admin Panel
 
-Production-ready web application for **Sri Kubera Decor & Events** — a stage decoration business based in Puducherry, India.
+Production-ready web application and complete, responsive administrative panel for **Sri Kubera Decor & Events** — stage decoration and event styling studio based in Puducherry, India.
 
-## Tech Stack
+---
+
+## 1. Tech Stack
 
 | Layer | Technology |
 |---|---|
-| Frontend | Next.js 15 (App Router, TypeScript) |
-| Styling | Tailwind CSS |
-| Forms | React Hook Form + Zod |
-| Icons | lucide-react |
-| Toasts | react-hot-toast |
-| Email | Resend |
-| Database | Supabase (PostgreSQL + RLS) |
-| Auth | Supabase Auth (email + password) |
-| Storage | Supabase Storage |
-| Image processing | Sharp (WebP conversion) |
-| PDF | jsPDF |
-| Hosting | Netlify |
-| CI/CD | GitHub Actions |
+| Frontend | Next.js 16 (App Router, Turbopack, TypeScript) |
+| Styling | Tailwind CSS v4 (Emerald `#0B4A3A`, Gold `#C9A24B`, Warm Ivory `#FAF6EC`) |
+| Admin UI | Responsive Shell, Desktop Sidebar, Mobile Bottom Bar (< 768px), Drag-and-Drop (`@dnd-kit`) |
+| Image Pipeline | `browser-image-compression` (client resize) + Sharp (server magic bytes, EXIF strip, dual WebP variants) |
+| Database & Auth | Supabase (PostgreSQL, Row Level Security, Realtime badges, Storage) |
+| Proxy / Security | `src/proxy.ts` (Next.js 16 proxy), 12-hour inactivity sign-out, server-side `is_admin()` checks |
+| Notifications | Resend (email alerts for new enquiries and requirement leads) |
+| PDF Receipts | jsPDF |
+| Hosting | Netlify (Serverless) |
 
 ---
 
-## Local Development Setup
+## 2. Setting Up Supabase & Running Database Migrations
 
-### 1. Clone the repository
+1. Go to your [Supabase Dashboard](https://supabase.com).
+2. Open the **SQL Editor**.
+3. In sequence, run:
+   - `supabase/migrations/001_initial_schema.sql` (if starting on a fresh database)
+   - `supabase/migrations/002_rls_security_audit.sql`
+   - `supabase/migrations/003_admin_schema_and_rls.sql` (**Critical for Admin Panel**)
 
-```bash
-git clone https://github.com/YOUR_USERNAME/kubera-decor.git
-cd kubera-decor
-npm install
-```
-
-### 2. Set up Supabase
-
-1. Go to [supabase.com](https://supabase.com) and create a new project.
-2. In the **SQL Editor**, run the full contents of:
-   ```
-   supabase/migrations/001_initial_schema.sql
-   ```
-   This creates all tables, RLS policies, storage buckets, and seed data.
-
-3. In **Storage**, verify that three buckets exist:
-   - `design-images` (public)
-   - `business-assets` (public)
-   - `receipts` (private)
-
-### 3. Create environment variables
-
-Copy `.env.example` to `.env.local` and fill in the values:
-
-```bash
-cp .env.example .env.local
-```
-
-| Variable | Where to find it |
-|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase dashboard -> Settings -> API |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase dashboard -> Settings -> API |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase dashboard -> Settings -> API |
-| `RESEND_API_KEY` | resend.com -> API Keys |
-| `RESEND_FROM_EMAIL` | Your verified sender domain on Resend |
-| `NEXT_PUBLIC_BUSINESS_WHATSAPP` | Business WhatsApp number with country code (e.g. `917373876879`) |
-| `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` for local, your domain for production |
-
-### 4. Run the development server
-
-```bash
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000).
+### What `003_admin_schema_and_rls.sql` creates:
+- `is_admin()` helper function with `security definer`.
+- Schema alterations for `categories`, `designs`, `bookings`, `services`, and `business_settings`.
+- Dedicated tables:
+  - `media`: Central photo library tracking dual WebP variants (`path_card`, `path_full`, dimensions, bytes).
+  - `design_images`: Many-to-many relationship between designs and media photos with sort orders and cover flags.
+  - `booking_private`: Column-level privacy holding internal notes and quoted prices visible strictly to admin.
+  - `booking_status_history`: Complete audit trail of customer booking status transitions.
+  - `requirements`: Leads captured from the public "Post Your Requirement" form.
+  - `testimonials`: Genuine customer reviews with star ratings and publish toggles.
+  - `site_content`: Dynamic key-value store for hero slides, proprietor info, real stats, and announcement banners.
+  - `activity_log`: Read-only chronological audit log of admin mutations.
+- Strict Row Level Security (RLS) policies on every table.
+- High-performance indexes for status and dates.
+- Realtime publication on `bookings` and `requirements` for live badge counters in the navigation.
 
 ---
 
-## Creating the Admin Account
+## 3. Creating and Promoting the Admin Account
 
-The admin account must be created directly in Supabase.
+The admin panel is completely protected. There is no public registration for admin accounts.
 
-1. In the Supabase dashboard, go to **Authentication -> Users** and create a new user.
-2. After creation, run this SQL in the SQL Editor (replace the email):
+### Step 1: Create the User in Supabase
+In Supabase Dashboard, navigate to **Authentication -> Users** and click **Add User** (Create User with Email & Password).
+
+### Step 2: Promote User to Admin via SQL
+Run the following SQL statement in the Supabase SQL Editor (replace with the user's email):
 
 ```sql
+-- Promote user to admin role
 UPDATE public.profiles
 SET role = 'admin'
-WHERE email = 'your-admin-email@example.com';
+WHERE email = 'saravanan@srikuberadecor.com';
+
+-- Verify the admin status
+SELECT id, email, role, full_name
+FROM public.profiles
+WHERE role = 'admin';
 ```
 
----
-
-## Deploying to Netlify
-
-1. Push the repository to GitHub.
-2. In [Netlify](https://app.netlify.com), click **New site -> Import from Git** and select the repository.
-3. Build settings are already configured in `netlify.toml`.
-4. Go to **Site configuration -> Environment variables** and add all variables from `.env.example` with production values.
-5. Deploy. Netlify will automatically redeploy on every push to `main`.
+Once promoted, the user can navigate to `/admin/login` and access the full administration system. Non-admin users attempting to access `/admin/*` are automatically blocked and redirected to the `/admin/403` forbidden page.
 
 ---
 
-## GitHub Actions
+## 4. How the Image Pipeline Works (Serverless & Phone-Friendly)
 
-| Workflow | Trigger | Purpose |
-|---|---|---|
-| `ci.yml` | Push/PR to `main` | Lint + build check |
-| `supabase-keepalive.yml` | Every Monday 09:00 UTC | Prevents Supabase free-tier pause |
+Netlify Serverless functions enforce a strict request body payload limit (~6 MB). To prevent mobile uploads from failing or timing out:
 
-Add all environment variables as **repository secrets** in GitHub -> Settings -> Secrets.
-
----
-
-## Project Structure
-
-```
-src/
-  app/
-    gallery/          # Public gallery + design detail + enquiry flow
-    services/         # Public services page
-    about/            # Public about page
-    contact/          # Public contact page
-    login/ signup/    # Auth pages
-    dashboard/        # Customer dashboard
-    enquiries/        # Customer enquiries
-    profile/          # Customer profile
-    admin/            # Admin panel
-    api/
-      enquiry/        # POST: create enquiry, generate ID, send email
-      upload/         # POST: image upload with Sharp WebP conversion
-      receipt/[id]/   # GET: generate and download PDF receipt
-  components/
-    layout/           # Header, Footer, WhatsAppButton
-    ui/               # DesignCard, StatusBadge
-  lib/supabase/       # Browser and server Supabase clients
-  types/              # TypeScript interfaces
-  middleware.ts       # Auth + role route protection
-```
+1. **Client-Side Compression (`browser-image-compression`)**:
+   - When the business owner selects large camera photos (e.g. 5 MB to 15 MB) from a phone, `clientImageUpload.ts` compresses and resizes them in the browser.
+   - Longest edge is capped at 1920 px, targeting ~1.5 MB per file.
+   - Files are uploaded one by one with a real-time progress bar.
+2. **Server Security & Magic Bytes Verification (`/api/admin/upload`)**:
+   - The route handler verifies that the calling user has `role = 'admin'` using Supabase Auth.
+   - Verifies real file magic bytes (JPEG `FF D8 FF`, PNG `89 50 4E`, WebP `RIFF...WEBP`). Rejects spoofed extensions.
+   - Max serverless body limit guarded at 6 MB.
+3. **Sharp Processing (Dual WebP Generation & Privacy Stripping)**:
+   - Sharp rotates images according to EXIF orientation.
+   - Completely strips all metadata (including GPS coordinates, camera model, and device info).
+   - Generates two WebP files:
+     - **Card variant**: 800 px wide, 78% quality (used in admin lists, public grids, occasion tiles).
+     - **Full variant**: 1600 px wide, 80% quality (used in design detail view and lightboxes).
+4. **Storage & Media Library**:
+   - Stored in the `design-images` public bucket.
+   - A row is inserted into the `media` table tracking file paths, dimensions, and total byte size.
 
 ---
 
-## Branding
+## 5. Resend Email Notifications Setup
 
-- **Primary:** Deep navy `#1F3A5F`
-- **Accent:** Muted gold `#C9A227`
-- **Background:** Warm cream `#F9F5EC`
-- **Fonts:** Georgia (headings), Inter (body)
+When a customer submits a booking enquiry or posts a requirement lead, an email notification is automatically dispatched to the business owner:
+
+1. Sign up at [Resend](https://resend.com) and create an API Key.
+2. Add your sending domain (e.g. `notifications@srikuberadecor.com`) and verify DNS records.
+   *(Note: Resend allows testing with `onboarding@resend.dev` to the registered account email before domain verification).*
+3. Add the following variables to `.env.local` (and Netlify Environment Variables):
+   ```env
+   RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxx
+   RESEND_FROM=Sri Kubera Decor <notifications@srikuberadecor.com>
+   RESEND_FROM_EMAIL=notifications@srikuberadecor.com
+   NOTIFY_EMAIL=saravanan@srikuberadecor.com
+   ```
+4. In the Admin Panel under **Settings -> Business Information**, you can update the **Admin Notification Email** at any time.
 
 ---
 
-## Business Contact
+## 6. Admin Panel Modules Overview
 
-**Sri Kubera Decor & Events**
-Proprietor: Saravanan
-Phone: 7373876879 / 9486064769
-Address: No. 80, Manjini Nagar, Bachanai Madam Street, Muthiyal Pettai, Puducherry
+The admin panel is located at `/admin` and organized for quick phone and desktop operation:
+
+- **Dashboard (`/admin`)**:
+  - Live KPI cards: Published designs, pending enquiries, confirmed events this month, new requirements, total customers.
+  - "Needs Attention" list highlighting pending enquiries > 24 hours and uncontacted leads.
+  - Upcoming events calendar preview for the next 7 days.
+  - Inline lightweight SVG chart of enquiries over the last 30 days.
+  - Storage allocation meter (used vs 1 GB free Supabase tier) with 70% and 90% warnings.
+- **Designs (`/admin/designs`)**:
+  - Filter by category and status (Draft, Published, Archived).
+  - Multi-photo upload with drag-and-drop reordering, cover photo selection, and alt text.
+  - Auto-generated URL slugs, inclusion tags with quick suggestions, and rupee price with "Price on request" toggle.
+  - Live preview card showing the exact rendering on the public site.
+  - Soft archive with restore support; guarded hard delete preventing deletion if booking enquiries exist.
+- **Media Library (`/admin/media`)**:
+  - Photo grid showing usage counts across designs. Filter by "All" or "Unused".
+  - Safe deletion preventing accidental deletion of photos currently in use.
+- **Categories (`/admin/categories`)**:
+  - Add, edit, activate/deactivate, and drag-and-drop reorder.
+  - Safeguarded deletion requiring reassignment of existing designs to another category first.
+- **Enquiries (`/admin/enquiries`)**:
+  - Search by enquiry ID, customer name, or phone number.
+  - Filter by status, date range, and category.
+  - Detail page with visual status stepper (`pending` -> `contacted` -> `confirmed` -> `rejected`), customer notes, internal private notes (`booking_private`), date clash alerts, and quick WhatsApp/Call links.
+  - UTF-8 with BOM CSV export for Microsoft Excel.
+- **Calendar (`/admin/calendar`)**:
+  - Custom month grid showing confirmed events by `event_date`.
+  - Date clash indicators and side drawer displaying daily schedules.
+- **Requirements (`/admin/requirements`)**:
+  - Lead management for submissions from the public "Post Your Requirement" section.
+  - Workflow status (`new` -> `contacted` -> `converted` -> `closed`), internal follow-up notes, and quick WhatsApp/Call actions.
+- **Customers (`/admin/customers`)**:
+  - Customer directory with search and enquiry history timeline.
+- **Services (`/admin/services`)**:
+  - Manage public service offerings with Lucide icons, descriptions, and drag-and-drop ordering.
+- **Testimonials (`/admin/testimonials`)**:
+  - Authentic customer reviews management. Only published reviews display on the public website.
+- **Site Content (`/admin/site-content`)**:
+  - Manage 1 to 5 hero carousel slides with headline, subheadline, and image from media library.
+  - About text and proprietor name.
+  - Real stats (events done, years in business, happy customers). Hidden if left empty.
+  - Header announcement bar toggle and text.
+- **Settings (`/admin/settings`)**:
+  - Business phone, WhatsApp, address, working hours, tagline, Google Maps link, and notification email.
+  - Admin account password change and global sign-out.
+- **Activity Log (`/admin/activity`)**:
+  - Audit trail of administrative actions.
+
+---
+
+## 7. Quality Assurance & Security Checklist
+
+- [x] Zero emoji policy: all icons use `lucide-react`.
+- [x] 12-hour inactivity sign-out enforced via cookie timestamps in `src/proxy.ts`.
+- [x] Strict Row Level Security: customer profiles and booking private data cannot be queried by unauthorized visitors.
+- [x] Mobile icon-safe inputs: `pl-10`, `pr-10`, minimum height 44 px, font size >= 16 px to prevent iOS safari auto-zoom.
+- [x] Mobile bottom navigation bar for screens under 768 px.
+- [x] Excel-compatible CSV exports with UTF-8 BOM encoding.
+- [x] Instant cache revalidation (`revalidatePath`) on all admin mutations.

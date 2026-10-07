@@ -18,6 +18,8 @@ export default async function ServicesPage() {
   const { data: services } = await supabase
     .from("services")
     .select("*")
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true })
     .order("created_at");
 
   return (

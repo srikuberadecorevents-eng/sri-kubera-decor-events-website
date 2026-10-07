@@ -16,9 +16,18 @@ export default function GalleryPage() {
   const supabase = createClient();
 
   useEffect(() => {
+    // Check initial category query param if present
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const catParam = urlParams.get("category");
+      if (catParam) setSelectedCategory(catParam);
+    }
+
     supabase
       .from("categories")
       .select("*")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true })
       .order("name")
       .then(({ data }) => {
         if (data && data.length > 0) {
@@ -33,6 +42,9 @@ export default function GalleryPage() {
       let query = supabase
         .from("designs")
         .select("*, categories(id, name, created_at)")
+        .eq("status", "published")
+        .is("deleted_at", null)
+        .order("sort_order", { ascending: true })
         .order("created_at", { ascending: false });
 
       if (selectedCategory !== "all") {

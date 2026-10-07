@@ -1,8 +1,5 @@
-import type { Metadata } from "next";
-import DesignForm from "../DesignForm";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "Add Design" };
-
-export default function NewDesignPage() {
-  return <DesignForm />;
+export default function GalleryNewRedirectPage() {
+  redirect("/admin/designs/new");
 }

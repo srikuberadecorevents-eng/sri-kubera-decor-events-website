@@ -4,16 +4,32 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Send, CheckCircle2, User, Phone, Calendar, MessageSquare } from "lucide-react";
+import {
+  Send,
+  CheckCircle2,
+  User,
+  Phone,
+  Mail,
+  MapPin,
+  Calendar,
+  MessageSquare,
+  MessageCircle,
+  Loader2,
+  AlertCircle,
+} from "lucide-react";
 
 const schema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  phone: z.string().regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit Indian mobile number"),
-  occasion: z.enum(["wedding", "birthday", "surprise", "corporate", "housewarming", "other"], {
-    message: "Please select an occasion",
-  }),
-  date: z.string().optional(),
-  message: z.string().min(10, "Please describe your requirements (min 10 characters)"),
+  name: z.string().trim().min(2, "Name must be at least 2 characters"),
+  phone: z
+    .string()
+    .trim()
+    .regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit Indian mobile number"),
+  email: z.string().trim().email("Please enter a valid email address").optional().or(z.literal("")),
+  place: z.string().trim().min(2, "Please enter your event place or area in Puducherry"),
+  event_type: z.string().optional(),
+  event_date: z.string().optional(),
+  message: z.string().trim().optional(),
+  hp_website: z.string().optional(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -21,16 +37,18 @@ type FormData = z.infer<typeof schema>;
 const WA_NUMBER = process.env.NEXT_PUBLIC_BUSINESS_WHATSAPP || "917373876879";
 
 const occasions = [
-  { value: "wedding", label: "Wedding" },
-  { value: "birthday", label: "Birthday" },
-  { value: "surprise", label: "Surprise Party" },
-  { value: "corporate", label: "Corporate Event" },
-  { value: "housewarming", label: "Housewarming" },
-  { value: "other", label: "Other" },
+  { value: "Wedding", label: "Wedding" },
+  { value: "Birthday", label: "Birthday" },
+  { value: "Surprise Party", label: "Surprise Party" },
+  { value: "Corporate Event", label: "Corporate Event" },
+  { value: "Housewarming", label: "Housewarming" },
+  { value: "Other", label: "Other" },
 ] as const;
 
 export default function PostRequirementSection() {
   const [submitted, setSubmitted] = useState(false);
+  const [submissionData, setSubmissionData] = useState<FormData | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const {
     register,
@@ -39,22 +57,45 @@ export default function PostRequirementSection() {
     formState: { errors, isSubmitting },
   } = useForm<FormData>({ resolver: zodResolver(schema) });
 
-  const onSubmit = (data: FormData) => {
+  const onSubmit = async (data: FormData) => {
+    setSubmitError(null);
+    try {
+      const response = await fetch("/api/requirements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      const res = await response.json();
+      if (!response.ok) {
+        throw new Error(res.error || "Failed to submit your requirement.");
+      }
+
+      setSubmissionData(data);
+      setSubmitted(true);
+      reset();
+    } catch (err: any) {
+      console.error("Requirement submission error:", err);
+      setSubmitError(err.message || "Failed to submit. Please try again or call us directly.");
+    }
+  };
+
+  const handleOpenWhatsApp = () => {
+    if (!submissionData) return;
     const text = [
-      `*New Decoration Enquiry*`,
+      `*New Decoration Requirement*`,
       `-----------------------------`,
-      `Name: ${data.name}`,
-      `Phone: ${data.phone}`,
-      `Occasion: ${occasions.find((o) => o.value === data.occasion)?.label ?? data.occasion}`,
-      data.date ? `Event Date: ${data.date}` : null,
-      `Requirements: ${data.message}`,
+      `Name: ${submissionData.name}`,
+      `Phone: ${submissionData.phone}`,
+      `Place: ${submissionData.place}`,
+      submissionData.event_type ? `Occasion: ${submissionData.event_type}` : null,
+      submissionData.event_date ? `Event Date: ${submissionData.event_date}` : null,
+      submissionData.message ? `Requirements: ${submissionData.message}` : null,
     ]
       .filter(Boolean)
       .join("\n");
 
     window.open(`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(text)}`, "_blank");
-    setSubmitted(true);
-    reset();
   };
 
   return (
@@ -62,13 +103,13 @@ export default function PostRequirementSection() {
       id="post-requirement"
       className="py-24 relative overflow-hidden"
       aria-labelledby="req-heading"
-      style={{ background: "linear-gradient(135deg, #1F3A5F 0%, #0d1e30 100%)" }}
+      style={{ background: "linear-gradient(135deg, #0B4A3A 0%, #06261E 100%)" }}
     >
-      {/* Background texture */}
+      {/* Background subtle pattern */}
       <div
         className="absolute inset-0 opacity-[0.04] pointer-events-none"
         style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23C9A227' fill-opacity='1'%3E%3Ccircle cx='20' cy='20' r='1'/%3E%3C/g%3E%3C/svg%3E")`,
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23C9A24B' fill-opacity='1'%3E%3Ccircle cx='20' cy='20' r='1'/%3E%3C/g%3E%3C/svg%3E")`,
         }}
         aria-hidden="true"
       />
@@ -76,7 +117,7 @@ export default function PostRequirementSection() {
       <div className="relative page-container">
         {/* Header */}
         <div className="text-center mb-14">
-          <p className="section-label text-gold-400 mb-3">Free Service</p>
+          <p className="section-label text-[#C9A24B] mb-3">Custom Decor</p>
           <h2
             id="req-heading"
             className="text-3xl md:text-4xl lg:text-5xl font-bold text-white"
@@ -85,9 +126,9 @@ export default function PostRequirementSection() {
             Post Your Requirement
           </h2>
           <div className="gold-divider mx-auto mt-5 mb-6" />
-          <p className="text-ivory-300 text-base md:text-lg max-w-xl mx-auto leading-relaxed">
-            Tell us about your event and we&apos;ll connect you on WhatsApp instantly.
-            No registration required &mdash; completely free.
+          <p className="text-[#FAF6EC]/80 text-base md:text-lg max-w-xl mx-auto leading-relaxed">
+            Tell us about your upcoming event in Puducherry. Our team will review your requirements
+            and get back to you promptly with recommendations.
           </p>
         </div>
 
@@ -97,7 +138,7 @@ export default function PostRequirementSection() {
             className="rounded-2xl p-8 md:p-10"
             style={{
               background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(201,162,39,0.25)",
+              border: "1px solid rgba(201,162,75,0.3)",
               backdropFilter: "blur(12px)",
             }}
           >
@@ -111,71 +152,157 @@ export default function PostRequirementSection() {
                   className="text-2xl font-bold text-white mb-3"
                   style={{ fontFamily: "var(--font-display)" }}
                 >
-                  WhatsApp Opened!
+                  Requirement Submitted!
                 </h3>
-                <p className="text-ivory-300 text-sm leading-relaxed mb-7 max-w-sm mx-auto">
-                  Your requirement has been prepared and WhatsApp was launched with
-                  your message. We&apos;ll reply as soon as possible.
+                <p className="text-[#FAF6EC]/80 text-sm leading-relaxed mb-6 max-w-md mx-auto">
+                  Thank you! Your requirement has been saved into our system. We will contact you
+                  shortly on {submissionData?.phone}. You can also connect immediately on WhatsApp.
                 </p>
-                <button
-                  onClick={() => setSubmitted(false)}
-                  className="btn-outline-gold"
-                >
-                  Submit Another Enquiry
-                </button>
+
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                  <button
+                    type="button"
+                    onClick={handleOpenWhatsApp}
+                    className="btn-gold flex items-center gap-2"
+                  >
+                    <MessageCircle size={18} />
+                    Chat on WhatsApp Now
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSubmitted(false);
+                      setSubmissionData(null);
+                    }}
+                    className="inline-flex items-center gap-2 px-6 py-3 rounded-full border border-white/30 text-white hover:bg-white/10 text-sm font-semibold transition"
+                  >
+                    Submit Another Requirement
+                  </button>
+                </div>
               </div>
             ) : (
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
+                {submitError && (
+                  <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center gap-3 text-red-200 text-sm">
+                    <AlertCircle size={18} className="shrink-0 text-red-400" />
+                    <span>{submitError}</span>
+                  </div>
+                )}
+
+                {/* Honeypot field for bot detection (hidden from users) */}
+                <input
+                  type="text"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  className="sr-only absolute -left-9999px"
+                  aria-hidden="true"
+                  {...register("hp_website")}
+                />
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   {/* Name */}
                   <div>
                     <label htmlFor="req-name" className="input-label-light">
-                      Full Name
+                      Full Name <span className="text-[#C9A24B]">*</span>
                     </label>
                     <div className="relative">
                       <User
-                        size={15}
-                        className="absolute left-0 top-1/2 -translate-y-1/2 text-ivory-400 pointer-events-none"
+                        size={16}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50 pointer-events-none"
                         aria-hidden="true"
                       />
                       <input
                         id="req-name"
                         type="text"
-                        placeholder="Ravi Kumar"
-                        className="input-underline pl-6"
+                        placeholder="e.g. Ramesh"
+                        className="w-full min-h-[44px] pl-10 pr-4 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 text-base focus:outline-none focus:border-[#C9A24B] focus:ring-1 focus:ring-[#C9A24B] transition"
                         aria-invalid={errors.name ? "true" : "false"}
                         aria-describedby={errors.name ? "req-name-err" : undefined}
                         {...register("name")}
                       />
                     </div>
                     {errors.name && (
-                      <p id="req-name-err" className="input-error-light">{errors.name.message}</p>
+                      <p id="req-name-err" className="text-xs text-red-300 mt-1 font-medium">{errors.name.message}</p>
                     )}
                   </div>
 
                   {/* Phone */}
                   <div>
                     <label htmlFor="req-phone" className="input-label-light">
-                      Phone / WhatsApp
+                      Phone Number <span className="text-[#C9A24B]">*</span>
                     </label>
                     <div className="relative">
                       <Phone
-                        size={15}
-                        className="absolute left-0 top-1/2 -translate-y-1/2 text-ivory-400 pointer-events-none"
+                        size={16}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50 pointer-events-none"
                         aria-hidden="true"
                       />
                       <input
                         id="req-phone"
                         type="tel"
-                        placeholder="9876543210"
-                        className="input-underline pl-6"
+                        placeholder="10-digit mobile number"
+                        className="w-full min-h-[44px] pl-10 pr-4 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 text-base focus:outline-none focus:border-[#C9A24B] focus:ring-1 focus:ring-[#C9A24B] transition"
                         aria-invalid={errors.phone ? "true" : "false"}
                         aria-describedby={errors.phone ? "req-phone-err" : undefined}
                         {...register("phone")}
                       />
                     </div>
                     {errors.phone && (
-                      <p id="req-phone-err" className="input-error-light">{errors.phone.message}</p>
+                      <p id="req-phone-err" className="text-xs text-red-300 mt-1 font-medium">{errors.phone.message}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  {/* Place / Location */}
+                  <div>
+                    <label htmlFor="req-place" className="input-label-light">
+                      Event Place / Area <span className="text-[#C9A24B]">*</span>
+                    </label>
+                    <div className="relative">
+                      <MapPin
+                        size={16}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50 pointer-events-none"
+                        aria-hidden="true"
+                      />
+                      <input
+                        id="req-place"
+                        type="text"
+                        placeholder="e.g. Muthiyal Pettai, Lawspet"
+                        className="w-full min-h-[44px] pl-10 pr-4 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 text-base focus:outline-none focus:border-[#C9A24B] focus:ring-1 focus:ring-[#C9A24B] transition"
+                        aria-invalid={errors.place ? "true" : "false"}
+                        aria-describedby={errors.place ? "req-place-err" : undefined}
+                        {...register("place")}
+                      />
+                    </div>
+                    {errors.place && (
+                      <p id="req-place-err" className="text-xs text-red-300 mt-1 font-medium">{errors.place.message}</p>
+                    )}
+                  </div>
+
+                  {/* Email (Optional) */}
+                  <div>
+                    <label htmlFor="req-email" className="input-label-light">
+                      Email Address <span className="text-white/40 font-normal">(optional)</span>
+                    </label>
+                    <div className="relative">
+                      <Mail
+                        size={16}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50 pointer-events-none"
+                        aria-hidden="true"
+                      />
+                      <input
+                        id="req-email"
+                        type="email"
+                        placeholder="name@example.com"
+                        className="w-full min-h-[44px] pl-10 pr-4 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 text-base focus:outline-none focus:border-[#C9A24B] focus:ring-1 focus:ring-[#C9A24B] transition"
+                        aria-invalid={errors.email ? "true" : "false"}
+                        aria-describedby={errors.email ? "req-email-err" : undefined}
+                        {...register("email")}
+                      />
+                    </div>
+                    {errors.email && (
+                      <p id="req-email-err" className="text-xs text-red-300 mt-1 font-medium">{errors.email.message}</p>
                     )}
                   </div>
                 </div>
@@ -188,42 +315,35 @@ export default function PostRequirementSection() {
                     </label>
                     <select
                       id="req-occasion"
-                      className="input-underline"
-                      aria-invalid={errors.occasion ? "true" : "false"}
-                      aria-describedby={errors.occasion ? "req-occasion-err" : undefined}
-                      style={{ color: "rgba(255,255,255,0.85)" }}
-                      {...register("occasion")}
+                      className="w-full min-h-[44px] px-4 py-2.5 rounded-xl bg-[#0B4A3A] border border-white/20 text-white text-base focus:outline-none focus:border-[#C9A24B] focus:ring-1 focus:ring-[#C9A24B] transition"
+                      {...register("event_type")}
                     >
-                      <option value="" style={{ background: "#1F3A5F" }}>Select occasion...</option>
+                      <option value="">Select occasion...</option>
                       {occasions.map((o) => (
-                        <option key={o.value} value={o.value} style={{ background: "#1F3A5F" }}>
+                        <option key={o.value} value={o.value}>
                           {o.label}
                         </option>
                       ))}
                     </select>
-                    {errors.occasion && (
-                      <p id="req-occasion-err" className="input-error-light">{errors.occasion.message}</p>
-                    )}
                   </div>
 
                   {/* Date */}
                   <div>
                     <label htmlFor="req-date" className="input-label-light">
-                      Event Date{" "}
-                      <span className="text-ivory-500 font-normal">(optional)</span>
+                      Event Date <span className="text-white/40 font-normal">(optional)</span>
                     </label>
                     <div className="relative">
                       <Calendar
-                        size={15}
-                        className="absolute left-0 top-1/2 -translate-y-1/2 text-ivory-400 pointer-events-none"
+                        size={16}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50 pointer-events-none"
                         aria-hidden="true"
                       />
                       <input
                         id="req-date"
                         type="date"
-                        className="input-underline pl-6"
+                        className="w-full min-h-[44px] pl-10 pr-4 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white text-base focus:outline-none focus:border-[#C9A24B] focus:ring-1 focus:ring-[#C9A24B] transition"
                         style={{ colorScheme: "dark" }}
-                        {...register("date")}
+                        {...register("event_date")}
                       />
                     </div>
                   </div>
@@ -236,37 +356,40 @@ export default function PostRequirementSection() {
                   </label>
                   <div className="relative">
                     <MessageSquare
-                      size={15}
-                      className="absolute left-0 top-3.5 text-ivory-400 pointer-events-none"
+                      size={16}
+                      className="absolute left-3 top-3.5 text-white/50 pointer-events-none"
                       aria-hidden="true"
                     />
                     <textarea
                       id="req-message"
-                      rows={4}
-                      placeholder="E.g. I need a wedding stage decoration for 200 guests with floral theme. Budget is around ₹50,000..."
-                      className="input-underline pl-6 resize-none"
-                      aria-invalid={errors.message ? "true" : "false"}
-                      aria-describedby={errors.message ? "req-message-err" : undefined}
+                      rows={3}
+                      placeholder="Tell us about the stage size, theme, floral preferences, or budget..."
+                      className="w-full min-h-[90px] pl-10 pr-4 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 text-base resize-none focus:outline-none focus:border-[#C9A24B] focus:ring-1 focus:ring-[#C9A24B] transition"
                       {...register("message")}
                     />
                   </div>
-                  {errors.message && (
-                    <p id="req-message-err" className="input-error-light">{errors.message.message}</p>
-                  )}
                 </div>
 
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="btn-gold w-full py-4 text-base justify-center"
+                  className="btn-gold w-full py-4 text-base justify-center flex items-center gap-2"
                 >
-                  <Send size={18} />
-                  Send via WhatsApp
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" />
+                      Submitting Requirement...
+                    </>
+                  ) : (
+                    <>
+                      <Send size={18} />
+                      Submit Requirement
+                    </>
+                  )}
                 </button>
 
-                <p className="text-ivory-500 text-xs text-center leading-relaxed">
-                  Clicking &ldquo;Send via WhatsApp&rdquo; will open WhatsApp with your message
-                  pre-filled. No account required.
+                <p className="text-white/50 text-xs text-center leading-relaxed">
+                  Your requirement will be sent directly to Sri Kubera Decor &amp; Events. No registration needed.
                 </p>
               </form>
             )}

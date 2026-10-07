@@ -32,9 +32,27 @@
   --color-ivory-400: #e3d3b0;
   --color-ivory-500: #d6c299;
 
-  /* ── Font Families (set by next/font CSS vars in layout) ── */
+  /* ── Admin Emerald & Gold Palette ── */
+  --color-emerald-admin-50:  #f0f7f5;
+  --color-emerald-admin-100: #d6ebe4;
+  --color-emerald-admin-200: #b0d9cd;
+  --color-emerald-admin-500: #147259;
+  --color-emerald-admin-600: #0E5A47;
+  --color-emerald-admin-700: #0B4A3A;
+  --color-emerald-admin-800: #08372B;
+  --color-emerald-admin-900: #05241C;
+
+  --color-admin-emerald: #0B4A3A;
+  --color-admin-gold:    #C9A24B;
+  --color-admin-bg:      #FAF6EC;
+  --color-admin-card:    #FFFFFF;
+  --color-admin-border:  #E8E2D5;
+  --color-admin-text:    #17211E;
+  --color-admin-muted:   #5D6D67;
+
+  /* ── Font Families ── */
   --font-display: var(--font-playfair, 'Playfair Display', Georgia, serif);
-  --font-sans:    var(--font-inter, Inter, system-ui, sans-serif);
+  --font-sans:    var(--font-inter, Inter, 'Noto Sans Tamil', system-ui, sans-serif);
   --font-serif:   var(--font-playfair, 'Playfair Display', Georgia, serif);
 
   /* ── Shadows ── */

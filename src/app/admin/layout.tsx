@@ -1,6 +1,15 @@
-import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
-import AdminSidebar from "./AdminSidebar";
+import { AdminLayoutShell } from "@/components/admin/AdminLayoutShell";
+import { RealtimeBadgesProvider } from "@/components/admin/RealtimeBadgesProvider";
+
+export const metadata: Metadata = {
+  title: {
+    default: "Admin Panel | Sri Kubera Decor & Events",
+    template: "%s | Sri Kubera Admin",
+  },
+  robots: { index: false, follow: false },
+};
 
 export default async function AdminLayout({
   children,
@@ -12,7 +21,10 @@ export default async function AdminLayout({
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) redirect("/login?redirectTo=/admin");
+  // If no user or non-admin, render children directly (allows /admin/login and /admin/403 to render cleanly)
+  if (!user) {
+    return <div className="min-h-screen bg-[#FAF6EC]">{children}</div>;
+  }
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -20,14 +32,32 @@ export default async function AdminLayout({
     .eq("id", user.id)
     .single();
 
-  if (!profile || profile.role !== "admin") redirect("/dashboard");
+  if (!profile || profile.role !== "admin") {
+    return <div className="min-h-screen bg-[#FAF6EC]">{children}</div>;
+  }
+
+  // Fetch initial counts server-side for fast first paint
+  const [{ count: pendingCount }, { count: newReqCount }] = await Promise.all([
+    supabase
+      .from("bookings")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "pending"),
+    supabase
+      .from("requirements")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "new"),
+  ]);
 
   return (
-    <div className="min-h-screen bg-cream-100 flex">
-      <AdminSidebar adminName={profile.name} />
-      <main className="flex-1 min-w-0 p-6 md:p-8 md:ml-64">
+    <RealtimeBadgesProvider
+      initialCounts={{
+        pendingEnquiries: pendingCount || 0,
+        newRequirements: newReqCount || 0,
+      }}
+    >
+      <AdminLayoutShell adminName={profile.name || "Administrator"}>
         {children}
-      </main>
-    </div>
+      </AdminLayoutShell>
+    </RealtimeBadgesProvider>
   );
 }

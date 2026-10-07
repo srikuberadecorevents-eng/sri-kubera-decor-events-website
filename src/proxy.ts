@@ -31,26 +31,56 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  // Protect customer routes
-  if (pathname.startsWith("/dashboard") || pathname.startsWith("/enquiries") || pathname.startsWith("/profile")) {
-    if (!user) {
-      const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = "/login";
-      redirectUrl.searchParams.set("redirectTo", pathname);
-      return NextResponse.redirect(redirectUrl);
-    }
-  }
-
-  // Protect admin routes
+  // 1. Admin route protection
   if (pathname.startsWith("/admin")) {
+    // Add noindex, nofollow for all /admin routes
+    supabaseResponse.headers.set("X-Robots-Tag", "noindex, nofollow");
+
+    // Allow /admin/login without auth
+    if (pathname === "/admin/login") {
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+        if (profile?.role === "admin") {
+          return NextResponse.redirect(new URL("/admin", request.url));
+        }
+      }
+      return supabaseResponse;
+    }
+
+    // Allow /admin/403 (forbidden error page)
+    if (pathname === "/admin/403") {
+      return supabaseResponse;
+    }
+
+    // Unauthenticated user attempting to access admin
     if (!user) {
       const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = "/login";
+      redirectUrl.pathname = "/admin/login";
       redirectUrl.searchParams.set("redirectTo", pathname);
       return NextResponse.redirect(redirectUrl);
     }
 
-    // Check admin role
+    // Check 12-hour admin inactivity
+    const lastActive = request.cookies.get("admin_last_active")?.value;
+    const now = Date.now();
+    const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
+
+    if (lastActive && now - parseInt(lastActive, 10) > TWELVE_HOURS_MS) {
+      // Inactive for > 12 hours: sign out
+      await supabase.auth.signOut();
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = "/admin/login";
+      redirectUrl.searchParams.set("reason", "session_expired");
+      const resp = NextResponse.redirect(redirectUrl);
+      resp.cookies.delete("admin_last_active");
+      return resp;
+    }
+
+    // Verify admin role
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
@@ -58,13 +88,39 @@ export async function proxy(request: NextRequest) {
       .single();
 
     if (!profile || profile.role !== "admin") {
+      // User is authenticated but NOT an admin: show 403 page
       const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = "/dashboard";
+      redirectUrl.pathname = "/admin/403";
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    // Update inactivity timestamp cookie (12-hour rolling session)
+    supabaseResponse.cookies.set("admin_last_active", now.toString(), {
+      path: "/",
+      maxAge: 60 * 60 * 24, // 24 hours
+      sameSite: "lax",
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+    });
+
+    return supabaseResponse;
+  }
+
+  // 2. Protect customer routes
+  if (
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/enquiries") ||
+    pathname.startsWith("/profile")
+  ) {
+    if (!user) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = "/login";
+      redirectUrl.searchParams.set("redirectTo", pathname);
       return NextResponse.redirect(redirectUrl);
     }
   }
 
-  // Redirect already-authenticated users away from auth pages
+  // 3. Redirect authenticated users away from public auth pages
   if (user && (pathname === "/login" || pathname === "/signup")) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/dashboard";
@@ -73,6 +129,9 @@ export async function proxy(request: NextRequest) {
 
   return supabaseResponse;
 }
+
+// Export middleware alias as well
+export const middleware = proxy;
 
 export const config = {
   matcher: [

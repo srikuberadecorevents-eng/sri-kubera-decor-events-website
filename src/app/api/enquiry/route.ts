@@ -152,6 +152,16 @@ export async function POST(request: NextRequest) {
       }).catch((err) => console.error("Email send error:", err));
     }
 
+    // Send alert to business owner (non-blocking)
+    const { sendEnquiryNotificationEmail } = await import("@/lib/notifications");
+    sendEnquiryNotificationEmail({
+      enquiry_id,
+      customer_name: profile?.name || "Customer",
+      customer_phone: profile?.phone || null,
+      customer_email: profile?.email || null,
+      design_title: designTitle,
+    }).catch((err) => console.error("Admin notification email error:", err));
+
     return NextResponse.json({
       success: true,
       enquiry_id,
