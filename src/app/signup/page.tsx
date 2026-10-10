@@ -64,7 +64,6 @@ export default function SignupPage() {
 
   const onSubmit = async (data: FormData) => {
     setLoading(true);
-
     const origin =
       typeof window !== "undefined" && window.location.origin
         ? window.location.origin
@@ -82,7 +81,7 @@ export default function SignupPage() {
           pincode: data.pincode || "",
           role: "user",
         },
-        emailRedirectTo: `${origin}/auth/callback?next=/login`,
+        emailRedirectTo: `${origin}/auth/callback?next=/dashboard`,
       },
     });
 
@@ -92,10 +91,8 @@ export default function SignupPage() {
       return;
     }
 
-    toast.success(
-      "Account created! Please click the confirmation link in your email to automatically sign in."
-    );
-    router.push("/login?signup=check-email");
+    toast.success("Account created! Please check your email to verify your account.");
+    router.push("/login");
   };
 
   return (

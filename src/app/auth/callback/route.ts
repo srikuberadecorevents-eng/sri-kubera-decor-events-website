@@ -31,6 +31,14 @@ export async function GET(request: Request) {
     }
   }
 
-  // If already authenticated or error, redirect to login with confirmed flag
-  return NextResponse.redirect(`${origin}/login?confirmed=true`);
+  // If user is already authenticated or params are missing, redirect safely
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user) {
+    return NextResponse.redirect(new URL(next, origin).toString());
+  }
+
+  return NextResponse.redirect(new URL("/login", origin).toString());
 }

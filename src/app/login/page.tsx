@@ -1,13 +1,13 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Eye, EyeOff, Loader2, Mail, Lock, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, Mail, Lock, ArrowLeft } from "lucide-react";
 import toast from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
 
@@ -21,101 +21,10 @@ type FormData = z.infer<typeof schema>;
 function LoginForm() {
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [autoSigningIn, setAutoSigningIn] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirectTo") || "/dashboard";
-  const code = searchParams.get("code");
-  const tokenHash = searchParams.get("token_hash");
-  const type = searchParams.get("type");
-  const signupMsg = searchParams.get("signup") === "check-email";
-  const errorParam = searchParams.get("error");
   const supabase = createClient();
-
-  useEffect(() => {
-    let mounted = true;
-
-    if (errorParam) {
-      toast.error(errorParam);
-    }
-
-    async function handleAutoAuth() {
-      // 1. If PKCE code is in the query params (e.g. redirected from email confirmation)
-      if (code) {
-        setAutoSigningIn(true);
-        try {
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
-          if (!error) {
-            toast.success("Email confirmed! Signing you in automatically...");
-            router.push(redirectTo);
-            router.refresh();
-            return;
-          } else {
-            console.error("Code exchange error:", error);
-            toast.error(error.message || "Failed to confirm email.");
-            if (mounted) setAutoSigningIn(false);
-          }
-        } catch (err: any) {
-          console.error("Auth error:", err);
-          if (mounted) setAutoSigningIn(false);
-        }
-      }
-
-      // 2. If token_hash and type are present in query params
-      if (tokenHash && type) {
-        setAutoSigningIn(true);
-        try {
-          const { error } = await supabase.auth.verifyOtp({
-            token_hash: tokenHash,
-            type: type as any,
-          });
-          if (!error) {
-            toast.success("Email confirmed! Signing you in automatically...");
-            router.push(redirectTo);
-            router.refresh();
-            return;
-          } else {
-            toast.error(error.message || "Failed to verify email.");
-            if (mounted) setAutoSigningIn(false);
-          }
-        } catch (err: any) {
-          console.error("Verify OTP error:", err);
-          if (mounted) setAutoSigningIn(false);
-        }
-      }
-
-      // 3. If user is already authenticated (or already signed in from /auth/callback)
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user && mounted) {
-        setAutoSigningIn(true);
-        toast.success("Email confirmed! Welcome back.");
-        router.push(redirectTo);
-        router.refresh();
-        return;
-      }
-    }
-
-    handleAutoAuth();
-
-    // 4. Listen for auth changes (such as client-side hash token exchange #access_token=...)
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if ((event === "SIGNED_IN" || event === "USER_UPDATED") && session?.user && mounted) {
-        setAutoSigningIn(true);
-        toast.success("Email verified! Redirecting to dashboard...");
-        router.push(redirectTo);
-        router.refresh();
-      }
-    });
-
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
-  }, [code, tokenHash, type, errorParam, redirectTo, router, supabase]);
 
   const {
     register,
@@ -145,38 +54,8 @@ function LoginForm() {
     router.refresh();
   };
 
-  if (autoSigningIn) {
-    return (
-      <div className="text-center py-8 space-y-4 animate-fade-in">
-        <div className="w-14 h-14 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mx-auto text-emerald-600">
-          <CheckCircle2 size={32} />
-        </div>
-        <div>
-          <h2 className="text-lg font-bold text-navy-900" style={{ fontFamily: "var(--font-display)" }}>
-            Email Confirmed!
-          </h2>
-          <p className="text-navy-600 text-sm mt-1">
-            Signing you in automatically, please wait...
-          </p>
-        </div>
-        <div className="flex justify-center pt-2">
-          <Loader2 size={24} className="animate-spin text-gold-500" />
-        </div>
-      </div>
-    );
-  }
-
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
-      {signupMsg && (
-        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs leading-relaxed flex items-start gap-2.5">
-          <CheckCircle2 size={16} className="text-emerald-600 shrink-0 mt-0.5" />
-          <div>
-            <strong className="block text-emerald-800 font-semibold mb-0.5">Please check your email</strong>
-            We sent a verification link to your inbox. Click <strong>Confirm your email</strong> to automatically sign in here without typing your password again.
-          </div>
-        </div>
-      )}
       <div>
         <label htmlFor="login-email" className="input-label">
           Email address
