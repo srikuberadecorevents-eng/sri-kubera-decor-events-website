@@ -64,6 +64,12 @@ export default function SignupPage() {
 
   const onSubmit = async (data: FormData) => {
     setLoading(true);
+
+    const origin =
+      typeof window !== "undefined" && window.location.origin
+        ? window.location.origin
+        : process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
     const { error } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
@@ -76,7 +82,7 @@ export default function SignupPage() {
           pincode: data.pincode || "",
           role: "user",
         },
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`,
+        emailRedirectTo: `${origin}/auth/callback?next=/login`,
       },
     });
 
@@ -86,8 +92,10 @@ export default function SignupPage() {
       return;
     }
 
-    toast.success("Account created! Please check your email to verify your account.");
-    router.push("/login");
+    toast.success(
+      "Account created! Please click the confirmation link in your email to automatically sign in."
+    );
+    router.push("/login?signup=check-email");
   };
 
   return (
