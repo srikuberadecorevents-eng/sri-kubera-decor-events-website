@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
 import { X, ArrowRight } from "lucide-react";
@@ -24,6 +25,12 @@ export default function ImageLightboxModal({
   galleryLink,
   galleryLinkText,
 }: ImageLightboxModalProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Close lightbox on Escape key
   useEffect(() => {
     if (!isOpen) return;
@@ -46,9 +53,9 @@ export default function ImageLightboxModal({
     };
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 sm:p-6"
       onClick={onClose}
@@ -66,14 +73,14 @@ export default function ImageLightboxModal({
         <X size={24} />
       </button>
 
-      {/* Image container — stop click from bubbling to backdrop */}
+      {/* Image container - stop click from bubbling to backdrop */}
       <div
         className="relative w-full max-w-5xl max-h-[90vh] rounded-2xl overflow-hidden shadow-2xl bg-black/50 flex flex-col items-center justify-center"
         onClick={(e) => e.stopPropagation()}
       >
         <Image
           src={imageUrl}
-          alt={`${title} — Sri Kubera Decor & Events`}
+          alt={`${title} - Sri Kubera Decor & Events`}
           width={1600}
           height={1200}
           className="w-full h-auto max-h-[85vh] object-contain"
@@ -105,6 +112,7 @@ export default function ImageLightboxModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

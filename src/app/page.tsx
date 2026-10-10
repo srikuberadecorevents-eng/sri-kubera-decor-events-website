@@ -12,9 +12,9 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import DesignCard from "@/components/ui/DesignCard";
 import HeroCounter from "@/components/ui/HeroCounter";
-import HeroImageZoom from "@/components/ui/HeroImageZoom";
 import OccasionCard from "@/components/ui/OccasionCard";
 import PostRequirementSection from "@/components/sections/PostRequirementSection";
+import SignupPromptModal from "@/components/ui/SignupPromptModal";
 import type { HeroSlide } from "@/types";
 import { INITIAL_DESIGNS } from "@/data/initialDesigns";
 
@@ -264,7 +264,6 @@ export default async function HomePage() {
               "Crafting unforgettable stage decorations for birthdays, marriages, baby showers, and special events across Puducherry."}
           </p>
 
-          {/* CTAs */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-up delay-300">
             <Link href="/gallery" className="btn-gold px-9 py-4 text-base">
               Browse Our Gallery
@@ -277,11 +276,6 @@ export default async function HomePage() {
               <Phone size={18} />
               Call {businessPhone}
             </a>
-            <HeroImageZoom
-              imageUrl={heroImageUrl}
-              title={activeSlide?.headline || "Sri Kubera Signature Stage Decoration"}
-              subtitle={activeSlide?.subheadline || "Grand romantic & royal stages across Puducherry"}
-            />
           </div>
 
           {/* Quick stats bar (rendered only if proprietor filled them in) */}
@@ -523,6 +517,8 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+      
+      <SignupPromptModal />
     </>
   );
 }
