@@ -14,43 +14,55 @@ import DesignCard from "@/components/ui/DesignCard";
 import HeroCounter from "@/components/ui/HeroCounter";
 import PostRequirementSection from "@/components/sections/PostRequirementSection";
 import type { HeroSlide } from "@/types";
+import { INITIAL_DESIGNS } from "@/data/initialDesigns";
 
 export const revalidate = 60; // Cache with ISR; revalidated on admin actions
 
 export const metadata: Metadata = {
   title: "Sri Kubera Decor & Events — We Decor Your Dreams",
   description:
-    "Premium stage decorations for weddings, birthdays, surprise parties, and corporate events in Puducherry. Contact us at 7373876879.",
+    "Premium stage decorations for birthdays, marriages, baby showers, and special events in Puducherry. Contact us at 7373876879.",
+};
+
+const CATEGORY_META: Record<string, { subtitle: string; image: string }> = {
+  Birthday: {
+    subtitle: "Vibrant themed setups & celebrations",
+    image: "/assets/birthday-01.jpeg",
+  },
+  Marriage: {
+    subtitle: "Grand romantic & royal stages",
+    image: "/assets/marriage-01.jpeg",
+  },
+  "Baby Shower": {
+    subtitle: "Joyful & memorable family celebrations",
+    image: "/assets/babyshower-01.jpeg",
+  },
+};
+
+const CATEGORY_ORDER: Record<string, number> = {
+  Birthday: 0,
+  Marriage: 1,
+  "Baby Shower": 2,
 };
 
 const defaultOccasions = [
   {
-    id: "wedding",
-    label: "Wedding",
-    subtitle: "Grand romantic stages",
-    image: "/assets/120000.jpeg",
-    href: "/gallery",
+    id: "15f8dad9-3d1d-4c37-9b5b-cbf9bfbc1c94",
+    name: "Birthday",
+    subtitle: "Vibrant themed setups & celebrations",
+    image: "/assets/birthday-01.jpeg",
   },
   {
-    id: "birthday",
-    label: "Birthday",
-    subtitle: "Vibrant themed setups",
-    image: "/assets/25000.jpeg",
-    href: "/gallery",
+    id: "492383f7-b261-4bf2-a0e4-5ad2e04159b0",
+    name: "Marriage",
+    subtitle: "Grand romantic & royal stages",
+    image: "/assets/marriage-01.jpeg",
   },
   {
-    id: "surprise",
-    label: "Surprise",
-    subtitle: "Magical celebrations",
-    image: "/assets/35000.jpeg",
-    href: "/gallery",
-  },
-  {
-    id: "corporate",
-    label: "Corporate",
-    subtitle: "Professional event polish",
-    image: "/assets/85000.jpeg",
-    href: "/gallery",
+    id: "eada5ea5-9fc8-4e67-8f59-897dd86b2280",
+    name: "Baby Shower",
+    subtitle: "Joyful & memorable family celebrations",
+    image: "/assets/babyshower-01.jpeg",
   },
 ];
 
@@ -83,7 +95,7 @@ export default async function HomePage() {
       .order("is_featured", { ascending: false })
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: false })
-      .limit(6),
+      .limit(30),
     supabase
       .from("testimonials")
       .select("*")
@@ -137,6 +149,46 @@ export default async function HomePage() {
   const businessPhone = businessSettings?.phone || "7373876879";
   const businessWa = businessSettings?.whatsapp || "917373876879";
 
+  // Curate 6 featured designs representing all categories (Birthday, Marriage, Baby Shower)
+  const allDesigns =
+    publishedDesigns && publishedDesigns.length > 0
+      ? publishedDesigns
+      : INITIAL_DESIGNS;
+
+  const birthdayDesigns = allDesigns.filter(
+    (d: any) => d.categories?.name === "Birthday"
+  );
+  const marriageDesigns = allDesigns.filter(
+    (d: any) => d.categories?.name === "Marriage"
+  );
+  const babyShowerDesigns = allDesigns.filter(
+    (d: any) => d.categories?.name === "Baby Shower"
+  );
+
+  const curatedFeatured: any[] = [
+    ...birthdayDesigns.slice(0, 2),
+    ...marriageDesigns.slice(0, 3),
+    ...babyShowerDesigns.slice(0, 1),
+  ];
+
+  if (curatedFeatured.length < 6) {
+    for (const d of allDesigns) {
+      if (!curatedFeatured.some((c) => c.id === d.id)) {
+        curatedFeatured.push(d);
+        if (curatedFeatured.length >= 6) break;
+      }
+    }
+  }
+
+  const categoriesToDisplay =
+    activeCategories && activeCategories.length > 0
+      ? [...activeCategories].sort((a: any, b: any) => {
+          const orderA = CATEGORY_ORDER[a.name] ?? 99;
+          const orderB = CATEGORY_ORDER[b.name] ?? 99;
+          return orderA - orderB;
+        })
+      : defaultOccasions;
+
   return (
     <>
       {/* ─────────────────── ANNOUNCEMENT BAR (if active) ─────────────────── */}
@@ -155,7 +207,13 @@ export default async function HomePage() {
         {/* Background photo */}
         <div className="absolute inset-0 overflow-hidden">
           <Image
-            src={activeSlide?.image_url || "/assets/120000.jpeg"}
+            src={
+              activeSlide?.image_url &&
+              !activeSlide.image_url.includes("120000.jpeg") &&
+              !activeSlide.image_url.includes("25000.jpeg")
+                ? activeSlide.image_url
+                : "/assets/marriage-01.jpeg"
+            }
             alt="Sri Kubera Decor & Events - Stage Decoration in Puducherry"
             fill
             priority
@@ -200,7 +258,7 @@ export default async function HomePage() {
           {/* Sub-copy */}
           <p className="text-[#FAF6EC]/85 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed mb-10 animate-fade-up delay-200">
             {activeSlide?.subheadline ||
-              "Crafting unforgettable stage decorations for weddings, birthdays, surprise parties, and corporate events across Puducherry."}
+              "Crafting unforgettable stage decorations for birthdays, marriages, baby showers, and special events across Puducherry."}
           </p>
 
           {/* CTAs */}
@@ -246,55 +304,55 @@ export default async function HomePage() {
             <h2 id="occasions-heading" className="section-title">Every Occasion, Perfectly Decorated</h2>
             <div className="gold-divider mx-auto mt-5" />
             <p className="section-subtitle mx-auto mt-5">
-              From grand wedding stages to intimate celebrations, we bring your vision to life with precision and artistry.
+              From grand wedding stages to vibrant birthday and baby shower celebrations, we bring your vision to life with precision and artistry.
             </p>
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
-            {(activeCategories && activeCategories.length > 0 ? activeCategories : defaultOccasions).map(
-              (cat: any, i: number) => {
-                const title = cat.name || cat.label;
-                const cover = cat.cover_url || cat.image || "/assets/120000.jpeg";
-                const sub = cat.subtitle || "Stage decoration";
-                return (
-                  <Link
-                    key={cat.id || i}
-                    href={`/gallery?category=${cat.id}`}
-                    className="group relative overflow-hidden rounded-2xl aspect-[3/4] block animate-fade-up"
-                    style={{ animationDelay: `${i * 0.1}s` }}
-                  >
-                    <Image
-                      src={cover}
-                      alt={`${title} decoration in Puducherry by Sri Kubera`}
-                      fill
-                      sizes="(max-width:640px) 50vw, 25vw"
-                      className="object-cover group-hover:scale-105 transition-transform duration-700"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#06261E]/90 via-[#06261E]/30 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-5">
-                      <p className="text-white/70 text-xs font-semibold tracking-widest uppercase mb-1">
-                        {sub}
-                      </p>
-                      <h3
-                        className="text-white text-xl font-bold"
-                        style={{ fontFamily: "var(--font-display)" }}
-                      >
-                        {title}
-                      </h3>
-                      <div className="mt-3 flex items-center gap-1.5 text-[#C9A24B] text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                        View Designs <ArrowRight size={13} />
-                      </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            {categoriesToDisplay.map((cat: any, i: number) => {
+              const title = cat.name || cat.label || "Decoration";
+              const meta = CATEGORY_META[title] || {};
+              const cover =
+                cat.cover_url || cat.image || meta.image || "/assets/marriage-01.jpeg";
+              const sub = cat.subtitle || meta.subtitle || "Stage decoration";
+              return (
+                <Link
+                  key={cat.id || i}
+                  href={`/gallery?category=${cat.id}`}
+                  className="group relative overflow-hidden rounded-2xl aspect-[3/4] block animate-fade-up shadow-md hover:shadow-xl transition-all"
+                  style={{ animationDelay: `${i * 0.1}s` }}
+                >
+                  <Image
+                    src={cover}
+                    alt={`${title} decoration in Puducherry by Sri Kubera`}
+                    fill
+                    sizes="(max-width:768px) 100vw, 33vw"
+                    className="object-cover group-hover:scale-105 transition-transform duration-700"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#06261E]/95 via-[#06261E]/40 to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-6">
+                    <p className="text-[#C9A24B] text-xs font-semibold tracking-widest uppercase mb-1.5">
+                      {sub}
+                    </p>
+                    <h3
+                      className="text-white text-2xl font-bold"
+                      style={{ fontFamily: "var(--font-display)" }}
+                    >
+                      {title}
+                    </h3>
+                    <div className="mt-3 flex items-center gap-1.5 text-white/90 text-xs font-semibold group-hover:text-[#C9A24B] transition-colors duration-300">
+                      View Designs <ArrowRight size={14} />
                     </div>
-                  </Link>
-                );
-              }
-            )}
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </div>
       </section>
 
       {/* ─────────────────── FEATURED DESIGNS ─────────────────── */}
-      {publishedDesigns && publishedDesigns.length > 0 && (
+      {curatedFeatured.length > 0 && (
         <section className="py-24 bg-white" aria-labelledby="featured-heading">
           <div className="page-container">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-14">
@@ -313,7 +371,7 @@ export default async function HomePage() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {publishedDesigns.map((design, i) => (
+              {curatedFeatured.map((design, i) => (
                 <div
                   key={design.id}
                   className="animate-fade-up"

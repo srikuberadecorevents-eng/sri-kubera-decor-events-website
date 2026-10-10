@@ -95,7 +95,7 @@ export default function SignupPage() {
       {/* Left: photo panel */}
       <div className="hidden lg:flex lg:w-5/12 relative overflow-hidden">
         <Image
-          src="/assets/45000-1.jpeg"
+          src="/assets/marriage-02.jpeg"
           alt="Beautiful event decoration by Sri Kubera Decor & Events"
           fill
           priority
@@ -134,16 +134,15 @@ export default function SignupPage() {
           <div className="mb-8">
             <Link href="/" className="inline-block mb-5">
               <div className="flex items-center gap-3">
-                <div
-                  className="w-9 h-9 rounded-full flex items-center justify-center"
-                  style={{ background: "linear-gradient(135deg, var(--color-gold-500), var(--color-gold-300))" }}
-                >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                    <polygon
-                      points="8,1 9.9,6.2 15.5,6.2 11,9.5 12.9,14.7 8,11.4 3.1,14.7 5,9.5 0.5,6.2 6.1,6.2"
-                      fill="var(--color-navy-900)"
-                    />
-                  </svg>
+                <div className="relative w-10 h-10 rounded-full overflow-hidden shrink-0 border border-[#C9A24B]/50 shadow-sm">
+                  <Image
+                    src="/assets/logo.jpeg"
+                    alt="Sri Kubera Decor & Events Logo"
+                    fill
+                    sizes="40px"
+                    className="object-cover"
+                    priority
+                  />
                 </div>
                 <div>
                   <p className="font-bold text-navy-900 leading-none" style={{ fontFamily: "var(--font-display)" }}>
@@ -173,13 +172,17 @@ export default function SignupPage() {
                 {/* Name */}
                 <div>
                   <label htmlFor="signup-name" className="input-label">Full Name</label>
-                  <div className="relative">
-                    <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-navy-400 pointer-events-none" aria-hidden="true" />
+                  <div
+                    className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-lg border ${
+                      errors.name ? "border-red-500" : "border-ivory-400"
+                    } bg-white focus-within:ring-2 focus-within:ring-gold-500 focus-within:border-transparent transition-all shadow-sm`}
+                  >
+                    <User size={16} className="text-navy-400 shrink-0" aria-hidden="true" />
                     <input
                       id="signup-name"
                       type="text"
-                      placeholder="Saravanan"
-                      className="input-field pl-10"
+                      placeholder="Your full name"
+                      className="w-full bg-transparent border-0 outline-none text-navy-900 text-sm placeholder:text-navy-300 focus:outline-none p-0"
                       aria-invalid={errors.name ? "true" : "false"}
                       aria-describedby={errors.name ? "su-name-err" : undefined}
                       {...register("name")}
@@ -191,13 +194,17 @@ export default function SignupPage() {
                 {/* Phone */}
                 <div>
                   <label htmlFor="signup-phone" className="input-label">Phone Number</label>
-                  <div className="relative">
-                    <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-navy-400 pointer-events-none" aria-hidden="true" />
+                  <div
+                    className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-lg border ${
+                      errors.phone ? "border-red-500" : "border-ivory-400"
+                    } bg-white focus-within:ring-2 focus-within:ring-gold-500 focus-within:border-transparent transition-all shadow-sm`}
+                  >
+                    <Phone size={16} className="text-navy-400 shrink-0" aria-hidden="true" />
                     <input
                       id="signup-phone"
                       type="tel"
                       placeholder="9876543210"
-                      className="input-field pl-10"
+                      className="w-full bg-transparent border-0 outline-none text-navy-900 text-sm placeholder:text-navy-300 focus:outline-none p-0"
                       aria-invalid={errors.phone ? "true" : "false"}
                       aria-describedby={errors.phone ? "su-phone-err" : undefined}
                       {...register("phone")}
@@ -210,13 +217,17 @@ export default function SignupPage() {
               {/* Email */}
               <div>
                 <label htmlFor="signup-email" className="input-label">Email Address</label>
-                <div className="relative">
-                  <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-navy-400 pointer-events-none" aria-hidden="true" />
+                <div
+                  className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-lg border ${
+                    errors.email ? "border-red-500" : "border-ivory-400"
+                  } bg-white focus-within:ring-2 focus-within:ring-gold-500 focus-within:border-transparent transition-all shadow-sm`}
+                >
+                  <Mail size={16} className="text-navy-400 shrink-0" aria-hidden="true" />
                   <input
                     id="signup-email"
                     type="email"
-                    placeholder="you@example.com"
-                    className="input-field pl-10"
+                    placeholder="example@gmail.com"
+                    className="w-full bg-transparent border-0 outline-none text-navy-900 text-sm placeholder:text-navy-300 focus:outline-none p-0"
                     aria-invalid={errors.email ? "true" : "false"}
                     aria-describedby={errors.email ? "su-email-err" : undefined}
                     {...register("email")}
@@ -251,13 +262,13 @@ export default function SignupPage() {
                 <label htmlFor="signup-address" className="input-label">
                   Address <span className="text-navy-400 font-normal">(optional)</span>
                 </label>
-                <div className="relative">
-                  <MapPin size={15} className="absolute left-3.5 top-3.5 text-navy-400 pointer-events-none" aria-hidden="true" />
+                <div className="flex items-start gap-2.5 w-full px-3.5 py-2.5 rounded-lg border border-ivory-400 bg-white focus-within:ring-2 focus-within:ring-gold-500 focus-within:border-transparent transition-all shadow-sm">
+                  <MapPin size={16} className="text-navy-400 shrink-0 mt-0.5" aria-hidden="true" />
                   <textarea
                     id="signup-address"
                     rows={2}
-                    placeholder="Your full address"
-                    className="input-field pl-10 resize-none"
+                    placeholder="Your full address in Puducherry"
+                    className="w-full bg-transparent border-0 outline-none text-navy-900 text-sm placeholder:text-navy-300 focus:outline-none p-0 resize-none"
                     {...register("address")}
                   />
                 </div>
@@ -268,14 +279,18 @@ export default function SignupPage() {
                 <label htmlFor="signup-pincode" className="input-label">
                   Pincode <span className="text-navy-400 font-normal">(optional)</span>
                 </label>
-                <div className="relative">
-                  <Hash size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-navy-400 pointer-events-none" aria-hidden="true" />
+                <div
+                  className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-lg border ${
+                    errors.pincode ? "border-red-500" : "border-ivory-400"
+                  } bg-white focus-within:ring-2 focus-within:ring-gold-500 focus-within:border-transparent transition-all shadow-sm`}
+                >
+                  <Hash size={16} className="text-navy-400 shrink-0" aria-hidden="true" />
                   <input
                     id="signup-pincode"
                     type="text"
                     maxLength={6}
                     placeholder="605001"
-                    className="input-field pl-10"
+                    className="w-full bg-transparent border-0 outline-none text-navy-900 text-sm placeholder:text-navy-300 focus:outline-none p-0"
                     aria-invalid={errors.pincode ? "true" : "false"}
                     aria-describedby={errors.pincode ? "su-pincode-err" : undefined}
                     {...register("pincode")}
@@ -288,13 +303,17 @@ export default function SignupPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="signup-password" className="input-label">Password</label>
-                  <div className="relative">
-                    <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-navy-400 pointer-events-none" aria-hidden="true" />
+                  <div
+                    className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-lg border ${
+                      errors.password ? "border-red-500" : "border-ivory-400"
+                    } bg-white focus-within:ring-2 focus-within:ring-gold-500 focus-within:border-transparent transition-all shadow-sm`}
+                  >
+                    <Lock size={16} className="text-navy-400 shrink-0" aria-hidden="true" />
                     <input
                       id="signup-password"
                       type={showPass ? "text" : "password"}
                       placeholder="Min 8 chars"
-                      className="input-field pl-10 pr-11"
+                      className="w-full bg-transparent border-0 outline-none text-navy-900 text-sm placeholder:text-navy-300 focus:outline-none p-0"
                       aria-invalid={errors.password ? "true" : "false"}
                       aria-describedby={errors.password ? "su-pw-err" : undefined}
                       {...register("password")}
@@ -302,10 +321,10 @@ export default function SignupPage() {
                     <button
                       type="button"
                       onClick={() => setShowPass(!showPass)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-navy-400 hover:text-navy-700 transition-colors"
+                      className="text-navy-400 hover:text-navy-700 transition-colors shrink-0 p-1"
                       aria-label={showPass ? "Hide password" : "Show password"}
                     >
-                      {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                      {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
                   {errors.password && <p id="su-pw-err" className="input-error">{errors.password.message}</p>}
@@ -313,13 +332,17 @@ export default function SignupPage() {
 
                 <div>
                   <label htmlFor="signup-confirm" className="input-label">Confirm Password</label>
-                  <div className="relative">
-                    <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-navy-400 pointer-events-none" aria-hidden="true" />
+                  <div
+                    className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-lg border ${
+                      errors.confirmPassword ? "border-red-500" : "border-ivory-400"
+                    } bg-white focus-within:ring-2 focus-within:ring-gold-500 focus-within:border-transparent transition-all shadow-sm`}
+                  >
+                    <Lock size={16} className="text-navy-400 shrink-0" aria-hidden="true" />
                     <input
                       id="signup-confirm"
                       type={showPass ? "text" : "password"}
                       placeholder="Repeat password"
-                      className="input-field pl-10"
+                      className="w-full bg-transparent border-0 outline-none text-navy-900 text-sm placeholder:text-navy-300 focus:outline-none p-0"
                       aria-invalid={errors.confirmPassword ? "true" : "false"}
                       aria-describedby={errors.confirmPassword ? "su-confirm-err" : undefined}
                       {...register("confirmPassword")}

@@ -144,43 +144,123 @@ BEGIN
       'Heart Light Frame, Marquee Letters, Candlelight Walkway, Champagne Table Decor, Photo Strings with Fairy Lights'
     ),
     (
-      'Fairytale Princess Birthday Theme',
-      'A whimsical pastel dream with an organic balloon garland, fairytale castle backdrop silhouette, lighted giant age number, and dessert pedestal tables.',
+      'Purple Butterfly First Birthday',
+      'A dreamy purple butterfly-themed setup featuring a full shimmer sequin wall, cascading purple, white and gold balloon garland, large butterfly cutouts, and a glowing Happy Birthday neon sign. Perfect for a little girl turning one.',
       v_birthday_id,
-      '/assets/40000.jpeg',
-      40000,
-      'Organic Balloon Garland, Castle Silhouette Backdrop, LED Number Display, Cake Table Styling, Kids Themed Photo Cutouts'
-    ),
-    (
-      'Carnival & Jungle Birthday Fiesta',
-      'Vibrant animal cutouts, lush green and golden balloon arches, personalized milestone board, and an action-packed party backdrop designed for kids celebrations.',
-      v_birthday_id,
-      '/assets/35000.jpeg',
+      '/assets/birthday-01.jpeg',
       35000,
-      'Animal Themed Cutouts, Colorful Balloon Columns, Milestone Board, Personalized Banner, Stage Balloon Base'
+      'Purple & Gold Balloon Garland, Shimmer Sequin Wall, Neon Happy Birthday Sign, Giant Butterfly Cutouts, Custom Printed Backdrop'
     ),
     (
-      'Starry Night Shimmer Birthday',
-      'Glamorous dark navy and gold balloon garland paired with a sparkling shimmer wall, neon happy birthday sign, and stage uplighting.',
+      'Black & Gold Legend Retirement Celebration',
+      'An elegant black, gold and white balloon arch with hanging Edison bulb droplets and a bold custom calligraphy backdrop. Ideal for milestone birthday and retirement celebrations.',
       v_birthday_id,
-      '/assets/25000.jpeg',
-      25000,
-      'Dark Blue & Gold Balloon Arch, Shimmer Sequin Wall, Warm Lighting, Number Marquee, Welcome Board'
+      '/assets/birthday-02.jpeg',
+      30000,
+      'Black & Gold Balloon Arch, Edison Bulb Droplets, Custom Calligraphy Backdrop, Stage Floral Border, Ambient Spotlights'
     ),
     (
-      'Pastel Cloud Dream Birthday Setup',
-      'Soft macaron-toned balloon clouds, acrylic arch with custom childs name, circular stage carpet, and matching dessert plinths.',
+      'Teddy Bear First Birthday Party',
+      'A warm and playful first birthday setup with a green artificial hedge wall, glittering gold sequin panel, organic balloon garland in brown, peach and white tones, LED number 1, and a teddy bear custom backdrop.',
       v_birthday_id,
-      '/assets/25000-1.jpeg',
-      25000,
-      'Pastel Balloon Cloud, Custom Acrylic Name Sign, Cylindrical Cake Pedestals, Backlighting, Welcome Easel'
+      '/assets/birthday-03.jpeg',
+      28000,
+      'Artificial Hedge Wall, Gold Sequin Panel, Organic Balloon Garland, LED Number Display, Custom Teddy Backdrop, Stage Grass Mat'
     ),
     (
-      'Joyful Celebration Archway Setup',
-      'A festive rainbow balloon archway with cheerful backdrop ring, stage floor runner, and themed party props suitable for all milestones.',
+      'Blue Hot Air Balloon First Birthday',
+      'A premium sky-blue first birthday stage with a sculpted balloon arch, custom hot air balloon props, a giant illuminated number 1, oversized teddy bears, and a tiered dessert display. Perfect for baby boys.',
       v_birthday_id,
-      '/assets/25000-4.jpeg',
-      25000,
-      'Multi-Color Balloon Archway, Party Backdrop Screen, Themed Props, Floor Mats, Number Balloons'
+      '/assets/birthday-04.jpeg',
+      45000,
+      'Full Balloon Arch, Hot Air Balloon Props, LED Number 1, Giant Teddy Bears, Tiered Cake Display, Floral Stage Border'
+    ),
+    (
+      'Boho Teddy Garden First Birthday',
+      'A charming boho-style setup with a glitter shimmer panel, green hedge arch, warm Edison bulb string lights, an organic peach and white balloon garland, a giant teddy bear, and personalised name blocks.',
+      v_birthday_id,
+      '/assets/birthday-06.jpeg',
+      38000,
+      'Gold Shimmer Wall, Hedge Arch, Organic Balloon Garland, LED Name Blocks, Giant Teddy Bear, Custom Printed Backdrop'
+    ),
+    (
+      'Fairy Princess Butterfly Birthday',
+      'A grand purple and gold butterfly-fairy stage with large illuminated marquee name letters, shimmering butterfly wings, princess character cutouts, gold arch frames, and a vibrant shimmer wall backdrop.',
+      v_birthday_id,
+      '/assets/birthday-07.jpeg',
+      50000,
+      'Illuminated Marquee Name Letters, Shimmer Butterfly Wings, Princess Character Cutouts, Gold Arch Frames, Custom Backdrop, Flower Pedestals'
+    ),
+    (
+      'Jungle Safari First Birthday',
+      'A lively jungle safari themed birthday featuring green and gold balloon arches, a grass wall backdrop, wild animal cutouts including tiger, lion and giraffe, printed animal cylinders, and milestone photo boards.',
+      v_birthday_id,
+      '/assets/birthday-08.jpeg',
+      42000,
+      'Green & Gold Balloon Arch, Grass Wall Backdrop, Animal Character Cutouts, Printed Cylinder Pedestals, Milestone Photo Board, Stage Carpet'
+    ),
+    (
+      'Purple Butterfly Marquee Name Setup',
+      'A sophisticated purple and yellow butterfly birthday with large wooden marquee name letters, butterfly wing props, a custom printed backdrop, and soft balloon garland draping.',
+      v_birthday_id,
+      '/assets/birthday-09.jpeg',
+      32000,
+      'Marquee Name Letters, Butterfly Wing Props, Purple & Gold Balloon Garland, Custom Printed Backdrop, LED Number, Floral Floor Border'
+    ),
+    (
+      'Blue Butterfly Marquee Birthday Stage',
+      'An elegant blue and white butterfly birthday setup with giant illuminated name letters, honeycomb-pattern backdrop, deep blue and white balloon arch spanning the full stage width, and vintage-style props.',
+      v_birthday_id,
+      '/assets/birthday-10.jpeg',
+      48000,
+      'Giant LED Marquee Letters, Full-Width Balloon Arch, Honeycomb Backdrop Panel, Butterfly Cutouts, Cake Display Table, Vintage Photo Props'
+    ),
+    (
+      'Wild One Safari Birthday Outdoor',
+      'A fresh outdoor safari setup with a sage green and gold balloon garland, arched green hedge panel, and adorable jungle animal cutouts including giraffe, lion and zebra on a custom backdrop.',
+      v_birthday_id,
+      '/assets/birthday-11.jpeg',
+      35000,
+      'Outdoor Balloon Arch, Green Hedge Panel, Safari Animal Cutouts, Custom Wild One Backdrop, Stage Grass Mat'
+    ),
+    (
+      'Fairy Butterfly Princess Stage',
+      'A vibrant pink and purple butterfly birthday stage with large pink butterfly frame panels, a printed princess character backdrop, balloon columns and a lit cake pedestal centrepiece.',
+      v_birthday_id,
+      '/assets/birthday-12.jpeg',
+      36000,
+      'Pink Butterfly Frame Panels, Princess Character Backdrop, Balloon Columns, Lit Cake Pedestal, Stage Skirting, Welcome Board'
+    ),
+    (
+      'Baby Boss Blue & Gold Birthday',
+      'A bold Baby Boss themed first birthday with a dramatic blue and gold balloon arch, Baby Boss character cutouts, illuminated BAB letter blocks, a sequin shimmer wall and striped patterned backdrop panels.',
+      v_birthday_id,
+      '/assets/birthday-13.jpeg',
+      40000,
+      'Blue & Gold Balloon Arch, Baby Boss Character Cutouts, LED Letter Blocks, Shimmer Sequin Wall, Patterned Backdrop Panels, Cake Tables'
+    ),
+    (
+      'Rustic Outdoor Teddy Bear Birthday',
+      'A magical outdoor evening setup featuring a rustic wooden pallet wall with Edison bulb string lights, a giant ONE marquee, a green hedge panel, organic balloon garlands in terracotta and teal, and illuminated arch frames.',
+      v_birthday_id,
+      '/assets/birthday-14.jpeg',
+      44000,
+      'Rustic Pallet Wall, Edison String Lights, Giant ONE Marquee, Hedge Panel, Organic Balloon Garland, LED Arch Frame, Teddy Bear Props'
+    ),
+    (
+      'Rainbow Unicorn Birthday',
+      'A magical rainbow unicorn party with multicolour balloon columns, a printed unicorn rainbow backdrop, a draped white dessert table and a glowing number 5 balloon. Full of colour and fantasy for little ones.',
+      v_birthday_id,
+      '/assets/birthday-15.jpeg',
+      26000,
+      'Rainbow Balloon Columns, Unicorn Rainbow Backdrop, White Draped Dessert Table, Number Balloon, Coloured Stage Lighting'
+    ),
+    (
+      'Jungle Safari Marquee Grand Birthday',
+      'A grand outdoor safari birthday with a full gold and green balloon garland, a premium round mirror disc, safari animal cutouts and backdrop panels, illuminated name marquee letters, and a royal crown cake pedestal.',
+      v_birthday_id,
+      '/assets/birthday-16.jpeg',
+      52000,
+      'Gold & Green Balloon Garland, Mirror Disc Backdrop, Safari Animal Cutouts, Illuminated Name Marquee, Crown Cake Pedestal, Outdoor Stage Setup'
     );
 END $$;

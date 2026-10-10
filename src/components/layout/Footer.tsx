@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Phone, MapPin, MessageCircle } from "lucide-react";
 
 // Brand-specific social SVG icons (no FontAwesome, no misleading generic icons)
@@ -37,16 +38,14 @@ export default function Footer() {
           <div className="md:col-span-5">
             {/* Logo */}
             <div className="flex items-center gap-3 mb-5">
-              <div
-                className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
-                style={{ background: "linear-gradient(135deg, var(--color-gold-500), var(--color-gold-300))" }}
-              >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                  <polygon
-                    points="8,1 9.9,6.2 15.5,6.2 11,9.5 12.9,14.7 8,11.4 3.1,14.7 5,9.5 0.5,6.2 6.1,6.2"
-                    fill="var(--color-navy-950)"
-                  />
-                </svg>
+              <div className="relative w-10 h-10 rounded-full overflow-hidden shrink-0 border border-[#C9A24B]/40 shadow-sm">
+                <Image
+                  src="/assets/logo.jpeg"
+                  alt="Sri Kubera Decor & Events Logo"
+                  fill
+                  sizes="40px"
+                  className="object-cover"
+                />
               </div>
               <div>
                 <h3
@@ -137,12 +136,11 @@ export default function Footer() {
             </h4>
             <ul className="space-y-3">
               {[
-                "Wedding Decoration",
-                "Birthday Decoration",
-                "Surprise Party Setup",
-                "Corporate Events",
-                "Housewarming",
+                "Marriage & Wedding Stages",
+                "Birthday Celebrations",
+                "Baby Shower Setups",
                 "Custom Floral Themes",
+                "Reception & Engagement Stages",
               ].map((s) => (
                 <li key={s} className="text-ivory-400 text-sm">
                   {s}

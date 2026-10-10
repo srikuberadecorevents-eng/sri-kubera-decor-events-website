@@ -60,18 +60,22 @@ function LoginForm() {
         <label htmlFor="login-email" className="input-label">
           Email address
         </label>
-        <div className="relative">
+        <div
+          className={`flex items-center gap-3 w-full px-3.5 py-3 rounded-lg border ${
+            errors.email ? "border-red-500" : "border-ivory-400"
+          } bg-white focus-within:ring-2 focus-within:ring-gold-500 focus-within:border-transparent transition-all shadow-sm`}
+        >
           <Mail
-            size={16}
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-navy-400 pointer-events-none"
+            size={18}
+            className="text-navy-400 shrink-0"
             aria-hidden="true"
           />
           <input
             id="login-email"
             type="email"
             autoComplete="email"
-            placeholder="you@example.com"
-            className="input-field pl-10"
+            placeholder="example@gmail.com"
+            className="w-full bg-transparent border-0 outline-none text-navy-900 text-sm placeholder:text-navy-300 focus:outline-none p-0"
             aria-invalid={errors.email ? "true" : "false"}
             aria-describedby={errors.email ? "login-email-err" : undefined}
             {...register("email")}
@@ -86,18 +90,22 @@ function LoginForm() {
         <label htmlFor="login-password" className="input-label">
           Password
         </label>
-        <div className="relative">
+        <div
+          className={`flex items-center gap-3 w-full px-3.5 py-3 rounded-lg border ${
+            errors.password ? "border-red-500" : "border-ivory-400"
+          } bg-white focus-within:ring-2 focus-within:ring-gold-500 focus-within:border-transparent transition-all shadow-sm`}
+        >
           <Lock
-            size={16}
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-navy-400 pointer-events-none"
+            size={18}
+            className="text-navy-400 shrink-0"
             aria-hidden="true"
           />
           <input
             id="login-password"
             type={showPass ? "text" : "password"}
             autoComplete="current-password"
-            placeholder="Your password"
-            className="input-field pl-10 pr-11"
+            placeholder="Enter your password"
+            className="w-full bg-transparent border-0 outline-none text-navy-900 text-sm placeholder:text-navy-300 focus:outline-none p-0"
             aria-invalid={errors.password ? "true" : "false"}
             aria-describedby={errors.password ? "login-pw-err" : undefined}
             {...register("password")}
@@ -105,10 +113,10 @@ function LoginForm() {
           <button
             type="button"
             onClick={() => setShowPass(!showPass)}
-            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-navy-400 hover:text-navy-700 transition-colors"
+            className="text-navy-400 hover:text-navy-700 transition-colors shrink-0 p-1"
             aria-label={showPass ? "Hide password" : "Show password"}
           >
-            {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+            {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
           </button>
         </div>
         {errors.password && (
@@ -140,7 +148,7 @@ export default function LoginPage() {
       {/* Left: image panel (hidden on mobile) */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
         <Image
-          src="/assets/90000.jpeg"
+          src="/assets/marriage-01.jpeg"
           alt="Stunning stage decoration by Sri Kubera Decor & Events"
           fill
           priority
@@ -180,16 +188,15 @@ export default function LoginPage() {
           <div className="mb-8">
             <Link href="/" className="inline-block mb-5">
               <div className="flex items-center gap-3">
-                <div
-                  className="w-9 h-9 rounded-full flex items-center justify-center"
-                  style={{ background: "linear-gradient(135deg, var(--color-gold-500), var(--color-gold-300))" }}
-                >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                    <polygon
-                      points="8,1 9.9,6.2 15.5,6.2 11,9.5 12.9,14.7 8,11.4 3.1,14.7 5,9.5 0.5,6.2 6.1,6.2"
-                      fill="var(--color-navy-900)"
-                    />
-                  </svg>
+                <div className="relative w-10 h-10 rounded-full overflow-hidden shrink-0 border border-[#C9A24B]/50 shadow-sm">
+                  <Image
+                    src="/assets/logo.jpeg"
+                    alt="Sri Kubera Decor & Events Logo"
+                    fill
+                    sizes="40px"
+                    className="object-cover"
+                    priority
+                  />
                 </div>
                 <div>
                   <p className="font-bold text-navy-900 leading-none" style={{ fontFamily: "var(--font-display)" }}>

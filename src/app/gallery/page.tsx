@@ -72,10 +72,24 @@ export default function GalleryPage() {
     return () => clearTimeout(debounce);
   }, [fetchDesigns]);
 
+  // Category display order: Birthday → Marriage → Baby Shower
+  const CATEGORY_ORDER: Record<string, number> = {
+    Birthday: 0,
+    Marriage: 1,
+    "Baby Shower": 2,
+  };
+
   // Compute the active designs list: if DB returned results use them, otherwise filter fallback data
   const displayedDesigns = useMemo(() => {
+    const sortByCat = (list: typeof INITIAL_DESIGNS) =>
+      [...list].sort(
+        (a, b) =>
+          (CATEGORY_ORDER[a.categories?.name ?? ""] ?? 99) -
+          (CATEGORY_ORDER[b.categories?.name ?? ""] ?? 99)
+      );
+
     if (dbDesigns && dbDesigns.length > 0) {
-      return dbDesigns;
+      return sortByCat(dbDesigns as typeof INITIAL_DESIGNS);
     }
     // Filter INITIAL_DESIGNS
     let list = INITIAL_DESIGNS;
@@ -96,7 +110,7 @@ export default function GalleryPage() {
           d.inclusions?.toLowerCase().includes(q)
       );
     }
-    return list;
+    return sortByCat(list);
   }, [dbDesigns, selectedCategory, search]);
 
   return (
@@ -116,25 +130,25 @@ export default function GalleryPage() {
           </h1>
           <div className="gold-divider mx-auto mt-4 mb-5" />
           <p className="text-navy-600 text-base leading-relaxed">
-            Browse our signature decoration stages for weddings, receptions,
-            birthdays, housewarmings, and special events. Select any design to view details and enquire.
+            Browse our signature decoration stages for birthdays, marriages,
+            baby showers, and all special events. Tap any image to view it full screen.
           </p>
         </div>
 
         {/* Filters */}
-        <div className="flex flex-col md:flex-row gap-4 mb-10 items-stretch md:items-center justify-between">
+        <div className="mb-10 space-y-3">
           {/* Search */}
-          <div className="relative flex-1 max-w-md">
+          <div className="relative w-full max-w-lg">
             <Search
               size={18}
               className="absolute left-4 top-1/2 -translate-y-1/2 text-navy-400 pointer-events-none"
             />
             <input
               type="search"
-              placeholder="Search stage designs (e.g. Mandap, Royal, Pastel)..."
+              placeholder="Search designs (e.g. Birthday, Butterfly, Rose)..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="input-field pl-11 pr-10 bg-white"
+              className="input-field pl-11 pr-10 bg-white w-full"
               id="gallery-search"
             />
             {search && (
@@ -187,9 +201,8 @@ export default function GalleryPage() {
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="card overflow-hidden animate-pulse">
                 <div className="aspect-[4/3] bg-ivory-300" />
-                <div className="p-5 space-y-3">
+                <div className="p-4">
                   <div className="h-4 bg-ivory-300 rounded w-3/4" />
-                  <div className="h-3 bg-ivory-200 rounded w-1/2" />
                 </div>
               </div>
             ))}

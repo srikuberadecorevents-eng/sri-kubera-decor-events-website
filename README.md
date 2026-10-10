@@ -176,3 +176,72 @@ The admin panel is located at `/admin` and organized for quick phone and desktop
 - [x] Mobile bottom navigation bar for screens under 768 px.
 - [x] Excel-compatible CSV exports with UTF-8 BOM encoding.
 - [x] Instant cache revalidation (`revalidatePath`) on all admin mutations.
+
+---
+
+## 8. CI/CD Pipeline
+
+Every push to `main` runs a GitHub Actions pipeline before anything is deployed to Netlify. Production deployment is blocked if any check fails.
+
+### Pipeline Flow
+
+```
+Developer
+   |
+   v
+git push origin main
+   |
+   v
+GitHub Actions — CI job
+   |
+   +-- npm ci (install dependencies)
+   |
+   +-- npm run lint (ESLint)
+   |
+   +-- npm run typecheck (tsc --noEmit)
+   |
+   +-- npm run build (Next.js production build)
+   |
+   v
+ALL CHECKS PASS?
+   |
+   Yes --> Deploy job --> netlify deploy --prod
+   |
+   No  --> STOP. Production deployment is blocked.
+```
+
+Pull requests targeting `main` run the full CI job (lint, typecheck, build) but **never** trigger a deployment.
+
+### Required GitHub Repository Secrets
+
+Navigate to your repository on GitHub: **Settings > Secrets and variables > Actions > New repository secret**
+
+| Secret Name | Description |
+|---|---|
+| `NETLIFY_AUTH_TOKEN` | A Netlify personal access token. Generate at: Netlify > User Settings > OAuth applications > Personal access tokens. |
+| `NETLIFY_SITE_ID` | The API ID of your Netlify site. Find it at: Netlify > Site > Site configuration > Site information > Site ID. |
+
+**Never paste actual secret values into this file or into the workflow YAML.**
+
+### Optional — GitHub Repository Variables (Non-Secret)
+
+These `NEXT_PUBLIC_*` values are used only during the CI build step so Next.js can compile without crashing on missing env vars. They are not secret. Set them under **Settings > Secrets and variables > Actions > Variables**.
+
+| Variable | Example Value |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://your-project.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `eyJhbGci...` (anon key, safe to expose) |
+| `NEXT_PUBLIC_APP_URL` | `https://srikuberadecor.com` |
+| `NEXT_PUBLIC_BUSINESS_WHATSAPP` | `917373876879` |
+| `NEXT_PUBLIC_BUSINESS_PHONE` | `7373876879` |
+| `NEXT_PUBLIC_BUSINESS_PHONE_2` | `9486064769` |
+
+### Netlify Git Auto-Deployment Notice
+
+If you connected your GitHub repository directly to Netlify ("Continuous Deployment" in the Netlify dashboard), Netlify will also trigger its own build on every push to `main`. This means **two deployments will run simultaneously** — one from Netlify's native integration and one from GitHub Actions.
+
+**Recommended architecture (choose one):**
+
+- **GitHub Actions controls deployment (recommended):** Disable Netlify's "Continuous Deployment" in the Netlify dashboard under **Site > Site configuration > Build & deploy > Continuous deployment**. GitHub Actions will be the single deployment controller.
+- **Netlify controls deployment:** Do not add `NETLIFY_AUTH_TOKEN` / `NETLIFY_SITE_ID` secrets. The CI job will still run (lint, typecheck, build) but the deploy job will be skipped. Netlify will deploy on its own schedule.
+

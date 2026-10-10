@@ -3,7 +3,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
-  IndianRupee,
   CheckCircle,
   MessageCircle,
   ArrowLeft,
@@ -66,9 +65,8 @@ export default async function DesignDetailPage({ params }: Props) {
     : [];
 
   const waNumber = process.env.NEXT_PUBLIC_BUSINESS_WHATSAPP || "917373876879";
-  const priceFormatted = design.price ? `₹${Number(design.price).toLocaleString("en-IN")}` : "Price on enquiry";
   const waText = encodeURIComponent(
-    `Hello Sri Kubera Decor & Events, I would like to enquire about the design "${design.title}" (${priceFormatted}). Please share availability and details.`
+    `Hello Sri Kubera Decor & Events, I would like to enquire about the decoration design "${design.title}". Please share availability and details.`
   );
 
   return (
@@ -113,17 +111,6 @@ export default async function DesignDetailPage({ params }: Props) {
               {design.title}
             </h1>
 
-            {design.price ? (
-              <div className="flex items-baseline gap-2 mb-6">
-                <div className="flex items-center gap-1 text-3xl font-extrabold text-gold-600">
-                  <IndianRupee size={26} />
-                  <span>{Number(design.price).toLocaleString("en-IN")}</span>
-                </div>
-                <span className="text-xs text-navy-400 font-medium">(Inclusive of setup & lighting)</span>
-              </div>
-            ) : (
-              <div className="text-xl font-bold text-gold-600 mb-6 italic">Price on Enquiry</div>
-            )}
 
             {design.description && (
               <p className="text-navy-600 leading-relaxed text-sm md:text-base mb-8">

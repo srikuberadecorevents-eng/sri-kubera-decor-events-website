@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Menu,
@@ -118,25 +119,16 @@ export default function Header() {
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-3 group shrink-0">
-              {/* Gold ornament */}
-              <div
-                className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-                style={{
-                  background: "linear-gradient(135deg, var(--color-gold-500), var(--color-gold-300))",
-                }}
-              >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  aria-hidden="true"
-                >
-                  <polygon
-                    points="8,1 9.9,6.2 15.5,6.2 11,9.5 12.9,14.7 8,11.4 3.1,14.7 5,9.5 0.5,6.2 6.1,6.2"
-                    fill="var(--color-navy-900)"
-                  />
-                </svg>
+              {/* Brand Logo */}
+              <div className="relative w-9 h-9 rounded-full overflow-hidden shrink-0 border border-[#C9A24B]/50 shadow-sm group-hover:scale-105 transition-transform">
+                <Image
+                  src="/assets/logo.jpeg"
+                  alt="Sri Kubera Decor & Events Logo"
+                  fill
+                  sizes="36px"
+                  className="object-cover"
+                  priority
+                />
               </div>
               <div className="flex flex-col leading-none">
                 <span

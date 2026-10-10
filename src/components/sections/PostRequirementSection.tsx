@@ -37,12 +37,10 @@ type FormData = z.infer<typeof schema>;
 const WA_NUMBER = process.env.NEXT_PUBLIC_BUSINESS_WHATSAPP || "917373876879";
 
 const occasions = [
-  { value: "Wedding", label: "Wedding" },
-  { value: "Birthday", label: "Birthday" },
-  { value: "Surprise Party", label: "Surprise Party" },
-  { value: "Corporate Event", label: "Corporate Event" },
-  { value: "Housewarming", label: "Housewarming" },
-  { value: "Other", label: "Other" },
+  { value: "Birthday", label: "Birthday Celebration" },
+  { value: "Marriage", label: "Marriage / Wedding Stage" },
+  { value: "Baby Shower", label: "Baby Shower" },
+  { value: "Other", label: "Other Celebration" },
 ] as const;
 
 export default function PostRequirementSection() {

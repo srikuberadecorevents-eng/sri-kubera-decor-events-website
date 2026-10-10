@@ -86,11 +86,6 @@ export default async function EnquiryDetailPage({ params }: Props) {
                 {design.categories?.name && (
                   <span className="badge bg-navy-100 text-navy-600 mb-2">{design.categories.name}</span>
                 )}
-                {design.price && (
-                  <p className="text-gold-600 font-semibold text-sm mt-1">
-                    Starting from Rs. {Number(design.price).toLocaleString("en-IN")}
-                  </p>
-                )}
               </div>
             </div>
           </div>
