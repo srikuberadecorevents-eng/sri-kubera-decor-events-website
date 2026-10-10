@@ -69,7 +69,7 @@ export default function SignupPage() {
         ? window.location.origin
         : process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
-    const { error } = await supabase.auth.signUp({
+    const { data: authData, error } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
       options: {
@@ -91,7 +91,22 @@ export default function SignupPage() {
       return;
     }
 
-    toast.success("Account created! Please check your email to verify your account.");
+    // If email confirmation is disabled in Supabase, user has active session immediately
+    if (authData.session) {
+      toast.success("Account created successfully! Welcome.");
+      router.push("/dashboard");
+      router.refresh();
+      return;
+    }
+
+    // If user already exists, Supabase returns empty identities array
+    if (authData.user && authData.user.identities && authData.user.identities.length === 0) {
+      toast.error("An account with this email already exists. Please sign in.");
+      router.push("/login");
+      return;
+    }
+
+    toast.success("Account created! If confirmation is required, please check your inbox & spam folder.");
     router.push("/login");
   };
 

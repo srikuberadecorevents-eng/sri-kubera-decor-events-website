@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import Image from "next/image";
-import { X, ZoomIn } from "lucide-react";
+import Link from "next/link";
+import { ZoomIn, ArrowRight } from "lucide-react";
 import type { Design } from "@/types";
+import ImageLightboxModal from "./ImageLightboxModal";
 
 interface DesignCardProps {
   design: Design;
@@ -12,34 +14,23 @@ interface DesignCardProps {
 export default function DesignCard({ design }: DesignCardProps) {
   const [open, setOpen] = useState(false);
 
-  const close = useCallback(() => setOpen(false), []);
-
-  // Close lightbox on Escape key
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [open, close]);
-
-  // Prevent body scroll when lightbox is open
-  useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
-  }, [open]);
-
   return (
     <>
       {/* Card */}
-      <button
-        type="button"
+      <div
         onClick={() => setOpen(true)}
-        className="group block w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 rounded-2xl"
-        aria-label={`View ${design.title}`}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setOpen(true);
+          }
+        }}
+        className="group block w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C9A24B] rounded-2xl cursor-pointer"
+        aria-label={`Zoom ${design.title} stage photo`}
       >
-        <article className="card-hover overflow-hidden h-full">
+        <article className="card-hover overflow-hidden h-full rounded-2xl bg-white border border-[#C9A24B]/15 shadow-sm hover:shadow-xl transition-all duration-300">
           {/* Image */}
           <div className="relative aspect-[4/3] overflow-hidden bg-ivory-200">
             <Image
@@ -47,86 +38,63 @@ export default function DesignCard({ design }: DesignCardProps) {
               alt={`${design.title} — Sri Kubera Decor & Events`}
               fill
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-              className="object-cover group-hover:scale-[1.04] transition-transform duration-700 ease-out"
+              className="object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
               loading="lazy"
             />
             {/* Dark overlay on hover */}
-            <div className="absolute inset-0 bg-navy-900/0 group-hover:bg-navy-900/20 transition-colors duration-500" />
+            <div className="absolute inset-0 bg-[#06261E]/0 group-hover:bg-[#06261E]/30 transition-colors duration-500" />
 
             {/* Category badge */}
             {design.categories && (
-              <span className="absolute top-3 left-3 badge bg-navy-900/85 text-ivory-100 backdrop-blur-sm text-[11px]">
+              <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-[#06261E]/85 text-[#FAF6EC] border border-[#C9A24B]/30 backdrop-blur-sm text-[11px] font-semibold tracking-wide">
                 {design.categories.name}
               </span>
             )}
 
             {/* Zoom icon on hover */}
-            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-              <span className="flex items-center gap-2 bg-white/90 backdrop-blur-sm text-navy-900 text-xs font-bold px-4 py-2 rounded-full shadow-lg">
-                <ZoomIn size={14} /> View
+            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+              <span className="flex items-center gap-2 bg-white/95 backdrop-blur-sm text-[#06261E] text-xs font-bold px-4 py-2.5 rounded-full shadow-xl">
+                <ZoomIn size={15} className="text-[#C9A24B]" /> Zoom Stage Photo
               </span>
             </div>
           </div>
 
-          {/* Title only */}
-          <div className="p-4">
+          {/* Card footer */}
+          <div className="p-4 sm:p-5">
             <h3
-              className="font-bold text-navy-900 text-sm leading-snug group-hover:text-gold-600 transition-colors"
+              className="font-bold text-[#06261E] text-base leading-snug group-hover:text-[#C9A24B] transition-colors"
               style={{ fontFamily: "var(--font-display)" }}
             >
               {design.title}
             </h3>
-          </div>
-        </article>
-      </button>
 
-      {/* Lightbox */}
-      {open && (
-        <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4"
-          onClick={close}
-          role="dialog"
-          aria-modal="true"
-          aria-label={design.title}
-        >
-          {/* Close button */}
-          <button
-            type="button"
-            onClick={close}
-            className="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/25 text-white transition-colors"
-            aria-label="Close image viewer"
-          >
-            <X size={24} />
-          </button>
+            <div className="mt-3.5 flex items-center justify-between gap-2 pt-3 border-t border-[#FAF6EC]">
+              <span className="inline-flex items-center gap-1.5 text-[#5D6D67] text-xs font-medium group-hover:text-[#C9A24B] transition-colors">
+                <ZoomIn size={13} className="text-[#C9A24B]" /> Click to zoom
+              </span>
 
-          {/* Image container — stop click from bubbling to backdrop */}
-          <div
-            className="relative w-full max-w-5xl max-h-[90vh] rounded-2xl overflow-hidden shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Image
-              src={design.image_url}
-              alt={`${design.title} — Sri Kubera Decor & Events`}
-              width={1600}
-              height={1200}
-              className="w-full h-auto max-h-[90vh] object-contain"
-              priority
-            />
-            {/* Title bar at bottom */}
-            <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent px-6 py-4">
-              <p
-                className="text-white font-bold text-base md:text-lg leading-snug"
-                style={{ fontFamily: "var(--font-display)" }}
+              <Link
+                href={`/gallery/${design.id}`}
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#0B4A3A]/10 hover:bg-[#C9A24B] text-[#0B4A3A] hover:text-[#06261E] text-xs font-semibold transition-all"
               >
-                {design.title}
-              </p>
-              {design.categories && (
-                <p className="text-white/70 text-xs mt-0.5">{design.categories.name}</p>
-              )}
+                Details <ArrowRight size={13} />
+              </Link>
             </div>
           </div>
-        </div>
-      )}
+        </article>
+      </div>
+
+      {/* Lightbox */}
+      <ImageLightboxModal
+        isOpen={open}
+        onClose={() => setOpen(false)}
+        imageUrl={design.image_url}
+        title={design.title}
+        subtitle={design.categories ? `${design.categories.name} Stage Decoration` : "Sri Kubera Stage Decoration"}
+        galleryLink={`/gallery/${design.id}`}
+        galleryLinkText="View Stage Details & Enquire"
+      />
     </>
   );
 }

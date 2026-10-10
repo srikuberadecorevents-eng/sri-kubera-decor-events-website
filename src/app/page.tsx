@@ -12,6 +12,8 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import DesignCard from "@/components/ui/DesignCard";
 import HeroCounter from "@/components/ui/HeroCounter";
+import HeroImageZoom from "@/components/ui/HeroImageZoom";
+import OccasionCard from "@/components/ui/OccasionCard";
 import PostRequirementSection from "@/components/sections/PostRequirementSection";
 import type { HeroSlide } from "@/types";
 import { INITIAL_DESIGNS } from "@/data/initialDesigns";
@@ -189,6 +191,13 @@ export default async function HomePage() {
         })
       : defaultOccasions;
 
+  const heroImageUrl =
+    activeSlide?.image_url &&
+    !activeSlide.image_url.includes("120000.jpeg") &&
+    !activeSlide.image_url.includes("25000.jpeg")
+      ? activeSlide.image_url
+      : "/assets/marriage-01.jpeg";
+
   return (
     <>
       {/* ─────────────────── ANNOUNCEMENT BAR (if active) ─────────────────── */}
@@ -207,13 +216,7 @@ export default async function HomePage() {
         {/* Background photo */}
         <div className="absolute inset-0 overflow-hidden">
           <Image
-            src={
-              activeSlide?.image_url &&
-              !activeSlide.image_url.includes("120000.jpeg") &&
-              !activeSlide.image_url.includes("25000.jpeg")
-                ? activeSlide.image_url
-                : "/assets/marriage-01.jpeg"
-            }
+            src={heroImageUrl}
             alt="Sri Kubera Decor & Events - Stage Decoration in Puducherry"
             fill
             priority
@@ -274,6 +277,11 @@ export default async function HomePage() {
               <Phone size={18} />
               Call {businessPhone}
             </a>
+            <HeroImageZoom
+              imageUrl={heroImageUrl}
+              title={activeSlide?.headline || "Sri Kubera Signature Stage Decoration"}
+              subtitle={activeSlide?.subheadline || "Grand romantic & royal stages across Puducherry"}
+            />
           </div>
 
           {/* Quick stats bar (rendered only if proprietor filled them in) */}
@@ -316,35 +324,14 @@ export default async function HomePage() {
                 cat.cover_url || cat.image || meta.image || "/assets/marriage-01.jpeg";
               const sub = cat.subtitle || meta.subtitle || "Stage decoration";
               return (
-                <Link
+                <OccasionCard
                   key={cat.id || i}
-                  href={`/gallery?category=${cat.id}`}
-                  className="group relative overflow-hidden rounded-2xl aspect-[3/4] block animate-fade-up shadow-md hover:shadow-xl transition-all"
-                  style={{ animationDelay: `${i * 0.1}s` }}
-                >
-                  <Image
-                    src={cover}
-                    alt={`${title} decoration in Puducherry by Sri Kubera`}
-                    fill
-                    sizes="(max-width:768px) 100vw, 33vw"
-                    className="object-cover group-hover:scale-105 transition-transform duration-700"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#06261E]/95 via-[#06261E]/40 to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-6">
-                    <p className="text-[#C9A24B] text-xs font-semibold tracking-widest uppercase mb-1.5">
-                      {sub}
-                    </p>
-                    <h3
-                      className="text-white text-2xl font-bold"
-                      style={{ fontFamily: "var(--font-display)" }}
-                    >
-                      {title}
-                    </h3>
-                    <div className="mt-3 flex items-center gap-1.5 text-white/90 text-xs font-semibold group-hover:text-[#C9A24B] transition-colors duration-300">
-                      View Designs <ArrowRight size={14} />
-                    </div>
-                  </div>
-                </Link>
+                  id={cat.id || ""}
+                  title={title}
+                  subtitle={sub}
+                  image={cover}
+                  animationDelay={`${i * 0.1}s`}
+                />
               );
             })}
           </div>
