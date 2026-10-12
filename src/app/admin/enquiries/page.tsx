@@ -20,7 +20,7 @@ import {
   MapPin,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { StatusBadge } from "@/components/admin/StatusBadge";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 import { EmptyState } from "@/components/admin/EmptyState";
 import { TableSkeleton } from "@/components/admin/Skeleton";
 import type { Booking, BookingStatus, Category } from "@/types";
@@ -68,7 +68,11 @@ export default function AdminEnquiriesPage() {
       }
 
       if (status !== "all") {
-        query = query.eq("status", status);
+        if (status === "pending" || status === "new") {
+          query = query.in("status", ["pending", "new"]);
+        } else {
+          query = query.eq("status", status);
+        }
       }
 
       if (dateFrom) {
@@ -247,7 +251,7 @@ export default function AdminEnquiriesPage() {
               aria-label="Filter by status"
             >
               <option value="all">All Statuses</option>
-              <option value="pending">Pending</option>
+              <option value="pending">Pending / New</option>
               <option value="contacted">Contacted</option>
               <option value="confirmed">Confirmed</option>
               <option value="rejected">Rejected</option>

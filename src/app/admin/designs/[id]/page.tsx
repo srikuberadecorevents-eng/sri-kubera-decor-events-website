@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import DesignForm from "../DesignForm";
+import { requireAdmin } from "@/lib/admin";
+import DesignForm from "@/components/admin/DesignForm";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -8,7 +8,7 @@ interface PageProps {
 
 export default async function EditDesignPage({ params }: PageProps) {
   const { id } = await params;
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin();
 
   const { data: design } = await supabase
     .from("designs")

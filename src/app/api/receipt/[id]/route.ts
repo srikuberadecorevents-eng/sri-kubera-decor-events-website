@@ -17,7 +17,7 @@ export async function GET(
 
     const { data: booking } = await supabase
       .from("bookings")
-      .select("*, designs(title, image_url), profiles(name, email, phone)")
+      .select("*, designs(title, image_url, price), profiles(name, email, phone), booking_private(quoted_price)")
       .eq("id", id)
       .single();
 
@@ -35,6 +35,12 @@ export async function GET(
     if (booking.user_id !== user.id && profile?.role !== "admin") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+
+    // Extract quoted price if admin or available
+    const rawQuoted = Array.isArray(booking.booking_private)
+      ? booking.booking_private[0]?.quoted_price
+      : booking.booking_private?.quoted_price;
+    const finalAmount = rawQuoted || booking.designs?.price;
 
     // Generate PDF using jsPDF
     const { jsPDF } = await import("jspdf");
@@ -71,7 +77,12 @@ export async function GET(
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(100, 80, 30);
-    doc.text("ENQUIRY RECEIPT", pageWidth / 2, y + 9, { align: "center" });
+    doc.text(
+      finalAmount ? "OFFICIAL QUOTATION & BOOKING RECEIPT" : "ENQUIRY RECEIPT",
+      pageWidth / 2,
+      y + 9,
+      { align: "center" }
+    );
     doc.setFont("helvetica", "bold");
     doc.setFontSize(22);
     doc.setTextColor(31, 58, 95);
@@ -80,16 +91,39 @@ export async function GET(
     y = y + 46;
 
     // Details table
-    const details = [
+    const details: [string, string][] = [
       ["Customer Name", booking.profiles?.name || "—"],
       ["Email", booking.profiles?.email || "—"],
       ["Phone", booking.profiles?.phone || "—"],
-      ["Design Title", booking.designs?.title || "—"],
-      ["Enquiry Date", new Date(booking.booking_date).toLocaleDateString("en-IN", {
-        day: "numeric", month: "long", year: "numeric",
-      })],
+      ["Design Title", booking.designs?.title || "Custom Stage Decoration"],
+      [
+        "Event Date",
+        booking.event_date
+          ? new Date(booking.event_date).toLocaleDateString("en-IN", {
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            })
+          : "To be confirmed",
+      ],
+      ["Venue / Location", booking.venue || "Puducherry"],
+      [
+        "Enquiry Date",
+        new Date(booking.booking_date).toLocaleDateString("en-IN", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        }),
+      ],
       ["Status", booking.status.charAt(0).toUpperCase() + booking.status.slice(1)],
     ];
+
+    if (finalAmount) {
+      details.push([
+        "Quoted Estimate",
+        `Rs. ${Number(finalAmount).toLocaleString("en-IN")}`,
+      ]);
+    }
 
     doc.setFontSize(10);
     details.forEach(([label, value]) => {
@@ -99,7 +133,7 @@ export async function GET(
       doc.setFont("helvetica", "normal");
       doc.setTextColor(50, 50, 50);
       doc.text(value, margin + 55, y);
-      y += 9;
+      y += 8.5;
     });
 
     if (booking.admin_notes) {

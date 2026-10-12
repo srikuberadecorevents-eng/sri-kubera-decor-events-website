@@ -21,7 +21,7 @@ import {
   FileText,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { StatusBadge } from "@/components/admin/StatusBadge";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 import { EmptyState } from "@/components/admin/EmptyState";
 import { TableSkeleton } from "@/components/admin/Skeleton";
 import { Modal } from "@/components/admin/Modal";
@@ -569,6 +569,14 @@ export default function AdminRequirementsPage() {
                   </span>
                 </div>
               )}
+              {selectedLead.budget && (
+                <div>
+                  <span className="text-[#5D6D67] block text-[11px]">Customer Target Budget</span>
+                  <span className="font-bold text-xs text-[#0B4A3A]">
+                    {selectedLead.budget}
+                  </span>
+                </div>
+              )}
               <div>
                 <span className="text-[#5D6D67] block text-[11px]">Submission Time</span>
                 <span className="text-xs text-[#5D6D67]">
@@ -576,6 +584,32 @@ export default function AdminRequirementsPage() {
                 </span>
               </div>
             </div>
+
+            {/* Uploaded Reference Photo */}
+            {selectedLead.image_url && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-semibold uppercase text-[#17211E]">
+                    Uploaded Inspiration Photo
+                  </label>
+                  <a
+                    href={selectedLead.image_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-[#0B4A3A] font-semibold hover:underline flex items-center gap-1"
+                  >
+                    Open original photo &rarr;
+                  </a>
+                </div>
+                <div className="relative aspect-[16/9] max-w-md rounded-2xl overflow-hidden border border-[#E8E2D5] bg-[#FAF6EC] shadow-xs">
+                  <img
+                    src={selectedLead.image_url}
+                    alt="Customer inspiration reference"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Requirement Message */}
             {selectedLead.message && (

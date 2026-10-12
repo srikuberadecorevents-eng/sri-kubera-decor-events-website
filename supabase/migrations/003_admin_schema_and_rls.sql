@@ -378,3 +378,38 @@ begin
 exception when others then
   null; -- if running in an env without pg_publication permissions, continue gracefully
 end $$;
+
+-- 11. Add image_url and budget to requirements if not present
+alter table public.requirements
+  add column if not exists image_url text,
+  add column if not exists budget text;
+
+-- 12. Security hardening: Prevent non-admins from modifying their own role in profiles
+create or replace function public.prevent_self_role_escalation()
+returns trigger language plpgsql security definer as $$
+begin
+  if new.role is distinct from old.role and not public.is_admin() then
+    raise exception 'Unauthorized to alter account role';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_prevent_self_role_escalation on public.profiles;
+create trigger trg_prevent_self_role_escalation
+  before update on public.profiles
+  for each row execute function public.prevent_self_role_escalation();
+
+-- Tighten profiles: own update RLS policy
+drop policy if exists "profiles: own update" on public.profiles;
+create policy "profiles: own update"
+  on public.profiles for update
+  using (auth.uid() = id)
+  with check (
+    auth.uid() = id
+    and (
+      role = (select p.role from public.profiles p where p.id = auth.uid())
+      or public.is_admin()
+    )
+  );
+

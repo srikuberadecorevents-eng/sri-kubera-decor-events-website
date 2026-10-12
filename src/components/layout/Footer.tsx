@@ -32,8 +32,8 @@ export default function Footer() {
 
   return (
     <footer className="bg-navy-950 text-ivory-200">
-      <div className="page-container py-16">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-12">
+      <div className="page-container py-10 md:py-12">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-10">
           {/* Brand column — 5/12 */}
           <div className="md:col-span-5">
             {/* Logo */}
@@ -60,7 +60,7 @@ export default function Footer() {
               </div>
             </div>
 
-            <p className="text-ivory-400 text-sm leading-relaxed max-w-xs mb-6">
+            <p className="text-ivory-400 text-sm leading-relaxed max-w-xs mb-4">
               We Decor Your Dreams. Crafting unforgettable moments through
               elegant decorations for weddings, birthdays, and every celebration
               that matters to you.
@@ -77,15 +77,15 @@ export default function Footer() {
             </div>
 
             {/* Phone */}
-            <div className="flex items-center gap-3 text-sm text-ivory-400 mb-6">
+            <div className="flex items-center gap-3 text-sm text-ivory-400 mb-4">
               <Phone size={15} className="text-gold-500 shrink-0" aria-hidden="true" />
               <span>
                 <a href="tel:7373876879" className="hover:text-gold-400 transition-colors">
-                  7373876879
+                  +91 73738 76879
                 </a>
                 {" "}·{" "}
                 <a href="tel:9486064769" className="hover:text-gold-400 transition-colors">
-                  9486064769
+                  +91 94860 64769
                 </a>
               </span>
             </div>
@@ -95,7 +95,7 @@ export default function Footer() {
               href={`https://wa.me/917373876879?text=${encodeURIComponent("Hello, I would like to enquire about your decoration services.")}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#25D366] text-white text-sm font-bold hover:bg-[#1ebe5b] transition-colors"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#128C7E] hover:bg-[#075E54] text-white text-sm font-bold shadow-md hover-lift transition-all"
               aria-label="Chat on WhatsApp"
             >
               <MessageCircle size={16} aria-hidden="true" />
@@ -151,7 +151,7 @@ export default function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div className="border-t border-navy-800 mt-14 pt-7 flex flex-col sm:flex-row items-center justify-between gap-5">
+        <div className="border-t border-navy-800 mt-10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-ivory-500 text-xs">
             &copy; {currentYear} Sri Kubera Decor &amp; Events. All rights reserved.
           </p>

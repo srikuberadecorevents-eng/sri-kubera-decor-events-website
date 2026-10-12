@@ -23,9 +23,28 @@ import {
   Loader2,
   X,
   AlertTriangle,
+  GripVertical,
+  ArrowUpDown,
 } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { createClient } from "@/lib/supabase/client";
-import { StatusBadge } from "@/components/admin/StatusBadge";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { EmptyState } from "@/components/admin/EmptyState";
 import { CardGridSkeleton, TableSkeleton } from "@/components/admin/Skeleton";
@@ -33,6 +52,107 @@ import type { Design, Category, DesignStatus } from "@/types";
 import toast from "react-hot-toast";
 
 const ITEMS_PER_PAGE = 20;
+
+function SortableDesignRow({
+  design,
+  onToggleFeatured,
+}: {
+  design: Design;
+  onToggleFeatured: (d: Design) => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: design.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 30 : 1,
+    opacity: isDragging ? 0.6 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-3.5 p-3.5 bg-white border border-[#E8E2D5] rounded-2xl shadow-xs transition-colors hover:border-[#0B4A3A] ${
+        isDragging ? "bg-[#FAF6EC] border-[#0B4A3A]" : ""
+      }`}
+    >
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        className="p-1.5 text-[#5D6D67] hover:text-[#0B4A3A] cursor-grab active:cursor-grabbing rounded-lg hover:bg-[#FAF6EC]"
+        title="Drag to reorder"
+        aria-label={`Reorder ${design.title}`}
+      >
+        <GripVertical size={18} />
+      </button>
+
+      <div className="relative w-14 h-14 rounded-xl overflow-hidden bg-[#FAF6EC] shrink-0 border border-[#E8E2D5]">
+        <Image
+          src={design.image_url}
+          alt={design.title}
+          fill
+          className="object-cover"
+        />
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <p className="font-bold text-sm text-[#17211E] truncate">
+            {design.title}
+          </p>
+          <StatusBadge status={design.status || "published"} size="sm" />
+          {design.is_featured && (
+            <span className="bg-[#C9A24B] text-[#05241C] text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0">
+              <Star size={10} className="fill-[#05241C]" />
+              Featured
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-3 text-xs text-[#5D6D67] mt-1">
+          {design.categories && <span>{design.categories.name}</span>}
+          <span>•</span>
+          <span className="font-semibold text-[#0B4A3A]">
+            {design.price_on_request || !design.price
+              ? "Price on Request"
+              : `Rs. ${Number(design.price).toLocaleString("en-IN")}`}
+          </span>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => onToggleFeatured(design)}
+        className={`p-2 rounded-xl border transition-colors cursor-pointer shrink-0 ${
+          design.is_featured
+            ? "bg-amber-50 text-amber-600 border-amber-300"
+            : "bg-white text-[#5D6D67] border-[#E8E2D5] hover:text-[#17211E]"
+        }`}
+        title={design.is_featured ? "Remove from featured" : "Set as featured"}
+        aria-label={design.is_featured ? "Remove from featured" : "Set as featured"}
+      >
+        <Star size={16} className={design.is_featured ? "fill-amber-500" : ""} />
+      </button>
+
+      <Link
+        href={`/admin/designs/${design.id}`}
+        className="p-2 text-xs font-semibold rounded-xl border border-[#E8E2D5] bg-[#FAF6EC] text-[#17211E] hover:bg-[#E8E2D5] transition-colors shrink-0"
+        title="Edit design"
+        aria-label="Edit design"
+      >
+        <Pencil size={14} />
+      </Link>
+    </div>
+  );
+}
 
 export default function AdminDesignsPage() {
   const [designs, setDesigns] = useState<Design[]>([]);
@@ -43,7 +163,7 @@ export default function AdminDesignsPage() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<"all" | DesignStatus>("all");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "list" | "reorder">("grid");
   const [currentPage, setCurrentPage] = useState(1);
 
   // Bulk selection
@@ -68,6 +188,76 @@ export default function AdminDesignsPage() {
       .then(({ data }) => setCategories(data || []));
   }, []);
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 5 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Toggle Featured
+  const handleToggleFeatured = async (design: Design) => {
+    const nextFeatured = !design.is_featured;
+    try {
+      const { error } = await supabase
+        .from("designs")
+        .update({
+          is_featured: nextFeatured,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", design.id);
+
+      if (error) throw error;
+
+      setDesigns((prev) =>
+        prev.map((d) =>
+          d.id === design.id ? { ...d, is_featured: nextFeatured } : d
+        )
+      );
+
+      const { revalidatePublicPages } = await import("@/app/actions/revalidate");
+      await revalidatePublicPages(["/", "/gallery"]);
+
+      toast.success(
+        nextFeatured
+          ? `Marked "${design.title}" as Featured`
+          : `Removed "${design.title}" from Featured`
+      );
+    } catch (err) {
+      console.error("Toggle featured error:", err);
+      toast.error("Failed to update featured status");
+    }
+  };
+
+  // Reorder drag end
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = designs.findIndex((d) => d.id === active.id);
+    const newIndex = designs.findIndex((d) => d.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const newArr = arrayMove(designs, oldIndex, newIndex);
+    setDesigns(newArr);
+
+    try {
+      const updates = newArr.map((d, index) =>
+        supabase.from("designs").update({ sort_order: index }).eq("id", d.id)
+      );
+      await Promise.all(updates);
+
+      const { revalidatePublicPages } = await import("@/app/actions/revalidate");
+      await revalidatePublicPages(["/", "/gallery"]);
+      toast.success("Design catalog order updated");
+    } catch (err) {
+      console.error("Failed to persist design order:", err);
+      toast.error("Failed to update design order");
+    }
+  };
+
   // Fetch designs
   const fetchDesigns = useCallback(async () => {
     setLoading(true);
@@ -75,6 +265,7 @@ export default function AdminDesignsPage() {
       let query = supabase
         .from("designs")
         .select("*, categories(name, slug)")
+        .order("sort_order", { ascending: true })
         .order("created_at", { ascending: false });
 
       if (categoryFilter !== "all") {
@@ -382,7 +573,7 @@ export default function AdminDesignsPage() {
             <option value="archived">Archived</option>
           </select>
 
-          {/* View Mode Toggle (Grid/List) */}
+          {/* View Mode Toggle (Grid/List/Reorder) */}
           <div className="flex items-center gap-1 border border-[#E8E2D5] p-1 rounded-xl bg-[#FAF6EC]/50 shrink-0">
             <button
               type="button"
@@ -409,6 +600,20 @@ export default function AdminDesignsPage() {
               aria-label="List view"
             >
               <ListIcon size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("reorder")}
+              className={`px-2 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1 text-xs font-semibold ${
+                viewMode === "reorder"
+                  ? "bg-white text-[#0B4A3A] shadow-xs"
+                  : "text-[#5D6D67] hover:text-[#17211E]"
+              }`}
+              title="Drag & Drop Reorder"
+              aria-label="Drag & Drop Reorder"
+            >
+              <ArrowUpDown size={14} />
+              <span className="hidden sm:inline">Reorder</span>
             </button>
           </div>
         </div>
@@ -591,6 +796,20 @@ export default function AdminDesignsPage() {
                       Edit
                     </Link>
 
+                    <button
+                      type="button"
+                      onClick={() => handleToggleFeatured(design)}
+                      className={`min-h-[36px] px-2.5 py-1.5 rounded-xl border transition-colors cursor-pointer flex items-center justify-center ${
+                        design.is_featured
+                          ? "bg-amber-50 text-amber-600 border-amber-300"
+                          : "bg-[#FAF6EC] text-[#5D6D67] border-[#E8E2D5] hover:text-[#17211E]"
+                      }`}
+                      title={design.is_featured ? "Remove from featured" : "Feature on homepage"}
+                      aria-label="Toggle featured"
+                    >
+                      <Star size={14} className={design.is_featured ? "fill-amber-500" : ""} />
+                    </button>
+
                     {design.status === "archived" ? (
                       <>
                         <button
@@ -626,7 +845,7 @@ export default function AdminDesignsPage() {
             );
           })}
         </div>
-      ) : (
+      ) : viewMode === "list" ? (
         /* ── List / Table View ── */
         <div className="bg-white rounded-2xl border border-[#E8E2D5] overflow-hidden shadow-xs">
           <div className="overflow-x-auto">
@@ -715,6 +934,20 @@ export default function AdminDesignsPage() {
 
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleFeatured(design)}
+                            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                              design.is_featured
+                                ? "text-amber-600 hover:bg-amber-50"
+                                : "text-[#5D6D67] hover:text-[#17211E] hover:bg-[#FAF6EC]"
+                            }`}
+                            title={design.is_featured ? "Remove from featured" : "Feature on homepage"}
+                            aria-label="Toggle featured"
+                          >
+                            <Star size={15} className={design.is_featured ? "fill-amber-500" : ""} />
+                          </button>
+
                           <Link
                             href={`/admin/designs/${design.id}`}
                             className="p-1.5 rounded-lg text-[#5D6D67] hover:text-[#17211E] hover:bg-[#FAF6EC] transition-colors"
@@ -760,6 +993,45 @@ export default function AdminDesignsPage() {
               </tbody>
             </table>
           </div>
+        </div>
+      ) : (
+        /* ── Reorder Drag and Drop View ── */
+        <div className="bg-white rounded-2xl border border-[#E8E2D5] p-5 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-[#E8E2D5] pb-3">
+            <div>
+              <h2 className="font-serif font-bold text-base text-[#17211E] flex items-center gap-2">
+                <ArrowUpDown size={16} className="text-[#0B4A3A]" />
+                Drag &amp; Drop Reorder Mode
+              </h2>
+              <p className="text-xs text-[#5D6D67] mt-0.5">
+                Drag cards by their handles to rearrange the display sequence on the public gallery.
+              </p>
+            </div>
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-emerald-50 text-[#0B4A3A] border border-emerald-200 self-start sm:self-auto">
+              Auto-saves on drop
+            </span>
+          </div>
+
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={designs.map((d) => d.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-2.5">
+                {designs.map((design) => (
+                  <SortableDesignRow
+                    key={design.id}
+                    design={design}
+                    onToggleFeatured={handleToggleFeatured}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         </div>
       )}
 

@@ -10,6 +10,7 @@ export interface Profile {
   address?: string;
   pincode?: string;
   created_at: string;
+  requirement_prompt_dismissed_at?: string | null;
   bookings?: { id: string }[];
 }
 
@@ -70,7 +71,7 @@ export interface Design {
   design_images?: DesignImage[];
 }
 
-export type BookingStatus = "pending" | "contacted" | "confirmed" | "rejected";
+export type BookingStatus = "pending" | "new" | "contacted" | "confirmed" | "rejected";
 
 export interface BookingPrivate {
   booking_id: string;
@@ -98,6 +99,7 @@ export interface Booking {
   booking_date: string;
   event_date?: string | null;
   venue?: string | null;
+  message?: string | null;
   admin_notes?: string | null;
   updated_at?: string;
   designs?: Design | null;
@@ -117,6 +119,9 @@ export interface Requirement {
   event_date?: string | null;
   place: string;
   message?: string | null;
+  image_url?: string | null;
+  budget?: string | null;
+  user_id?: string | null;
   status: RequirementStatus;
   admin_notes?: string | null;
   created_at: string;
@@ -142,7 +147,7 @@ export interface HeroSlide {
 
 export interface SiteContent {
   key: string;
-  value: any;
+  value: unknown;
   updated_at: string;
 }
 

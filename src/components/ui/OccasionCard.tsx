@@ -1,10 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { ZoomIn, ArrowRight } from "lucide-react";
-import ImageLightboxModal from "./ImageLightboxModal";
+import ResponsiveImage from "./ResponsiveImage";
+
+const ImageLightboxModal = dynamic(() => import("./ImageLightboxModal"), {
+  ssr: false,
+});
 
 interface OccasionCardProps {
   id: string;
@@ -19,15 +23,14 @@ export default function OccasionCard({
   title,
   subtitle,
   image,
-  animationDelay = "0s",
+  animationDelay: _animationDelay = "0s",
 }: OccasionCardProps) {
   const [open, setOpen] = useState(false);
 
   return (
     <>
       <div
-        className="group relative overflow-hidden rounded-2xl aspect-[3/4] block animate-fade-up shadow-md hover:shadow-2xl transition-all duration-300 cursor-pointer text-left"
-        style={{ animationDelay }}
+        className="group relative overflow-hidden rounded-2xl aspect-[3/4] block shadow-md hover:shadow-2xl transition-all duration-300 cursor-pointer text-left"
         onClick={() => setOpen(true)}
         role="button"
         tabIndex={0}
@@ -39,12 +42,13 @@ export default function OccasionCard({
         }}
         aria-label={`Zoom ${title} stage decoration photo`}
       >
-        <Image
+        <ResponsiveImage
           src={image}
           alt={`${title} stage decoration in Puducherry by Sri Kubera`}
           fill
-          sizes="(max-width:768px) 100vw, 33vw"
+          sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
           className="object-cover group-hover:scale-105 transition-transform duration-700"
+          loading="lazy"
         />
 
         {/* Gradient Overlay */}

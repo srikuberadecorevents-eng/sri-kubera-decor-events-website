@@ -13,7 +13,9 @@ const requirementSchema = z.object({
   place: z.string().trim().min(2, "Please enter your area or city in Puducherry"),
   event_type: z.string().trim().optional().or(z.literal("")),
   event_date: z.string().trim().optional().or(z.literal("")),
+  budget: z.string().trim().optional().or(z.literal("")),
   message: z.string().trim().optional().or(z.literal("")),
+  image_url: z.string().optional().or(z.literal("")),
   hp_website: z.string().optional(), // Honeypot
 });
 
@@ -65,22 +67,40 @@ export async function POST(request: NextRequest) {
 
     // 4. Insert into database
     const supabase = await createClient();
-    const insertPayload = {
+    const fullMessage = data.message?.trim() || null;
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const insertPayload: Record<string, any> = {
       name: data.name,
       phone: data.phone,
       email: data.email || null,
       place: data.place,
       event_type: data.event_type || null,
       event_date: data.event_date || null,
-      message: data.message || null,
+      budget: data.budget || null,
+      message: fullMessage,
+      image_url: data.image_url || null,
       status: "new",
     };
+
+    if (user) {
+      insertPayload.user_id = user.id;
+    }
 
     const { data: inserted, error: insertError } = await supabase
       .from("requirements")
       .insert(insertPayload)
       .select("id")
       .single();
+
+    if (user && !insertError) {
+      await supabase
+        .from("profiles")
+        .update({ requirement_prompt_dismissed_at: new Date().toISOString() })
+        .eq("id", user.id);
+    }
 
     if (insertError) {
       console.error("Requirement DB insert error:", insertError);
@@ -99,7 +119,7 @@ export async function POST(request: NextRequest) {
       place: data.place,
       event_type: data.event_type,
       event_date: data.event_date,
-      message: data.message,
+      message: fullMessage,
     }).catch((err) => console.error("Requirement notification email error:", err));
 
     return NextResponse.json({

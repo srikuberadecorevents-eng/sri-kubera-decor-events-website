@@ -12,8 +12,8 @@ import {
   ClipboardList,
   Eye,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
-import { StatusBadge } from "@/components/admin/StatusBadge";
+import { requireAdmin } from "@/lib/admin";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 import type { Booking } from "@/types";
 
 export const metadata: Metadata = {
@@ -27,7 +27,7 @@ interface Props {
 
 export default async function CustomerDetailPage({ params }: Props) {
   const { id } = await params;
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin();
 
   const [{ data: customer }, { data: bookings }] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", id).single(),

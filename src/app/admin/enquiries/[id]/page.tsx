@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { EnquiryDetailClient } from "./EnquiryDetailClient";
+import { requireAdmin } from "@/lib/admin";
+import { EnquiryDetailClient } from "@/components/admin/EnquiryDetailClient";
 
 export const metadata: Metadata = {
   title: "Enquiry Details | Sri Kubera Admin",
@@ -14,7 +14,7 @@ interface Props {
 
 export default async function AdminEnquiryDetailPage({ params }: Props) {
   const { id } = await params;
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin();
 
   const { data: booking } = await supabase
     .from("bookings")

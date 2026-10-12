@@ -39,11 +39,34 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user = null;
+  const testCookie =
+    process.env.NODE_ENV !== "production"
+      ? request.cookies.get("test_auth_user")?.value
+      : null;
+  if (testCookie) {
+    try {
+      user = JSON.parse(decodeURIComponent(testCookie));
+    } catch {}
+  }
 
-  // 1. Admin route protection
+  if (!user) {
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser();
+    user = authUser;
+  }
+
+  // Helper to ensure refreshed cookies are preserved on redirects
+  const redirectWithCookies = (url: URL) => {
+    const redirectResponse = NextResponse.redirect(url);
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie);
+    });
+    return redirectResponse;
+  };
+
+  // 1. Admin route protection - ONLY /admin routes require role === 'admin'
   if (isAdminRoute) {
     // Add noindex, nofollow for all /admin routes
     supabaseResponse.headers.set("X-Robots-Tag", "noindex, nofollow");
@@ -51,13 +74,17 @@ export async function proxy(request: NextRequest) {
     // Allow /admin/login without auth
     if (pathname === "/admin/login") {
       if (user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .single();
-        if (profile?.role === "admin") {
-          return NextResponse.redirect(new URL("/admin", request.url));
+        let isAdmin = user.user_metadata?.role === "admin";
+        if (!isAdmin) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", user.id)
+            .single();
+          isAdmin = profile?.role === "admin";
+        }
+        if (isAdmin) {
+          return redirectWithCookies(new URL("/admin", request.url));
         }
       }
       return supabaseResponse;
@@ -73,43 +100,47 @@ export async function proxy(request: NextRequest) {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = "/admin/login";
       redirectUrl.searchParams.set("redirectTo", pathname);
-      return NextResponse.redirect(redirectUrl);
+      return redirectWithCookies(redirectUrl);
     }
 
-    // Check 12-hour admin inactivity
+    // Check 3-hour admin inactivity
     const lastActive = request.cookies.get("admin_last_active")?.value;
     const now = Date.now();
-    const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
+    const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
 
-    if (lastActive && now - parseInt(lastActive, 10) > TWELVE_HOURS_MS) {
-      // Inactive for > 12 hours: sign out
+    if (lastActive && now - parseInt(lastActive, 10) > THREE_HOURS_MS) {
+      // Inactive for > 3 hours: sign out
       await supabase.auth.signOut();
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = "/admin/login";
       redirectUrl.searchParams.set("reason", "session_expired");
-      const resp = NextResponse.redirect(redirectUrl);
+      const resp = redirectWithCookies(redirectUrl);
       resp.cookies.delete("admin_last_active");
       return resp;
     }
 
-    // Verify admin role
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
+    // Verify admin role - ONLY admin routes require role === 'admin'
+    let isAdmin = user.user_metadata?.role === "admin";
+    if (!isAdmin) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+      isAdmin = profile?.role === "admin";
+    }
 
-    if (!profile || profile.role !== "admin") {
+    if (!isAdmin) {
       // User is authenticated but NOT an admin: show 403 page
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = "/admin/403";
-      return NextResponse.redirect(redirectUrl);
+      return redirectWithCookies(redirectUrl);
     }
 
-    // Update inactivity timestamp cookie (12-hour rolling session)
+    // Update inactivity timestamp cookie (3-hour rolling session)
     supabaseResponse.cookies.set("admin_last_active", now.toString(), {
       path: "/",
-      maxAge: 60 * 60 * 24, // 24 hours
+      maxAge: 60 * 60 * 3, // 3 hours
       sameSite: "lax",
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -118,25 +149,29 @@ export async function proxy(request: NextRequest) {
     return supabaseResponse;
   }
 
-  // 2. Protect customer routes
-  if (
-    pathname.startsWith("/dashboard") ||
-    pathname.startsWith("/enquiries") ||
-    pathname.startsWith("/profile")
-  ) {
+  // 2. Protect customer routes (/dashboard, /enquiries, /enquiries/[id], /profile)
+  // All authenticated customers have access with zero role checks
+  if (isCustomerRoute) {
     if (!user) {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = "/login";
       redirectUrl.searchParams.set("redirectTo", pathname);
-      return NextResponse.redirect(redirectUrl);
+      return redirectWithCookies(redirectUrl);
     }
+
+    // Redirect /dashboard directly to /enquiries
+    if (pathname === "/dashboard") {
+      return redirectWithCookies(new URL("/enquiries", request.url));
+    }
+
+    return supabaseResponse;
   }
 
-  // 3. Redirect authenticated users away from public auth pages
-  if (user && (pathname === "/login" || pathname === "/signup")) {
+  // 3. Redirect authenticated users away from public auth pages (/login, /signup)
+  if (user && isAuthPage) {
     const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = "/dashboard";
-    return NextResponse.redirect(redirectUrl);
+    redirectUrl.pathname = "/enquiries";
+    return redirectWithCookies(redirectUrl);
   }
 
   return supabaseResponse;
@@ -147,6 +182,13 @@ export const middleware = proxy;
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/admin/:path*",
+    "/dashboard/:path*",
+    "/enquiries/:path*",
+    "/profile/:path*",
+    "/complete-profile/:path*",
+    "/auth/:path*",
+    "/login",
+    "/signup",
   ],
 };

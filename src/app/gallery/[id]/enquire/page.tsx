@@ -2,7 +2,6 @@
 
 import { useState, use } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, Loader2, CheckCircle } from "lucide-react";
 import toast from "react-hot-toast";
@@ -50,9 +49,9 @@ export default function EnquirePage({ params }: Props) {
     const waNumber = process.env.NEXT_PUBLIC_BUSINESS_WHATSAPP || "917373876879";
 
     return (
-      <div className="py-16 bg-cream-100 min-h-screen">
+      <div className="py-10 md:py-14 bg-cream-100">
         <div className="page-container max-w-2xl mx-auto text-center">
-          <div className="card p-10 animate-slide-up">
+          <div className="card p-6 md:p-8 animate-slide-up">
             <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-6">
               <CheckCircle size={32} className="text-emerald-600" />
             </div>
@@ -99,17 +98,17 @@ export default function EnquirePage({ params }: Props) {
   }
 
   return (
-    <div className="py-12 bg-cream-100 min-h-screen">
+    <div className="py-10 md:py-14 bg-cream-100">
       <div className="page-container max-w-xl mx-auto">
         <Link
           href={`/gallery/${designId}`}
-          className="inline-flex items-center gap-2 text-navy-500 hover:text-navy-800 text-sm mb-8 transition-colors"
+          className="inline-flex items-center gap-2 text-navy-500 hover:text-navy-800 text-sm mb-4 md:mb-5 transition-colors"
         >
           <ArrowLeft size={16} />
           Back to Design
         </Link>
 
-        <div className="card p-8">
+        <div className="card p-6 md:p-8">
           <h1 className="text-2xl font-serif font-bold text-navy-900 mb-2">
             Confirm Your Enquiry
           </h1>

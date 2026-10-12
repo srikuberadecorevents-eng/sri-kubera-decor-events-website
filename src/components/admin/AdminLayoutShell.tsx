@@ -54,6 +54,7 @@ const mainNavItems = [
     badgeKey: "newRequirements" as const,
   },
   { href: "/admin/customers", label: "Customers", icon: Users },
+  { href: "/admin/users", label: "Users & Roles", icon: Shield },
   { href: "/admin/services", label: "Services", icon: Briefcase },
   { href: "/admin/testimonials", label: "Testimonials", icon: Star },
   { href: "/admin/site-content", label: "Site Content", icon: FileText },
@@ -83,7 +84,6 @@ export function AdminLayoutShell({
     if (href === "/admin") return pathname === "/admin";
     // Also match legacy routes like /admin/gallery to /admin/designs
     if (href === "/admin/designs" && pathname.startsWith("/admin/gallery")) return true;
-    if (href === "/admin/customers" && pathname.startsWith("/admin/users")) return true;
     return pathname.startsWith(href);
   };
 

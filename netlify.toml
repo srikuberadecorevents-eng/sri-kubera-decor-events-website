@@ -1,6 +1,55 @@
 [build]
-command = "npm run build"
-publish = ".next"
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"
 
 [[plugins]]
-package = "@netlify/plugin-nextjs"
+  package = "@netlify/plugin-nextjs"
+
+# Canonical redirects: enforce 1-hop apex HTTPS
+[[redirects]]
+  from = "https://www.srikuberadecorevents.in/*"
+  to = "https://srikuberadecorevents.in/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "http://www.srikuberadecorevents.in/*"
+  to = "https://srikuberadecorevents.in/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "http://srikuberadecorevents.in/*"
+  to = "https://srikuberadecorevents.in/:splat"
+  status = 301
+  force = true
+
+# Immutable caching for static Next.js chunks and optimized images
+[[headers]]
+  for = "/_next/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/images/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Security and caching headers for HTML pages
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "SAMEORIGIN"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"

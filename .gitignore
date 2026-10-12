@@ -23,6 +23,11 @@
 # misc
 .DS_Store
 *.pem
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+._*
 
 # debug
 npm-debug.log*
@@ -45,3 +50,7 @@ next-env.d.ts
 # test artifacts
 qa-screenshots/
 qa-audit-findings.json
+test-results/
+playwright-report/
+lighthouse-report.json
+

@@ -17,8 +17,8 @@ import {
   AlertTriangle,
   Phone,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
-import { StatusBadge } from "@/components/admin/StatusBadge";
+import { requireAdmin } from "@/lib/admin";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 import type { Booking, Requirement } from "@/types";
 
 export const metadata: Metadata = {
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
 const STORAGE_LIMIT_BYTES = 1024 * 1024 * 1024; // 1 GB free tier
 
 export default async function AdminDashboardPage() {
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin();
 
   const now = new Date();
   const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
@@ -42,44 +42,69 @@ export default async function AdminDashboardPage() {
 
   // Fetch KPI statistics in parallel
   const [
-    { count: publishedDesignsCount },
+    { count: totalEnquiriesCount },
     { count: pendingEnquiriesCount },
-    { count: confirmedThisMonthCount },
-    { count: newRequirementsCount },
+    { count: quotedEnquiriesCount },
+    { count: confirmedTotalCount },
     { count: totalCustomersCount },
+    { count: upcomingEventsCount },
+    { count: publishedDesignsCount },
+    { count: newRequirementsCount },
     { data: needsAttentionBookings },
     { data: needsAttentionReqs },
     { data: upcomingConfirmedBookings },
     { data: last30DaysEnquiries },
     { data: mediaRows },
   ] = await Promise.all([
+    // Total enquiries
+    supabase
+      .from("bookings")
+      .select("*", { count: "exact", head: true }),
+
+    // New enquiries (pending)
+    supabase
+      .from("bookings")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "pending"),
+
+    // Quoted / in contact
+    supabase
+      .from("bookings")
+      .select("*", { count: "exact", head: true })
+      .in("status", ["contacted", "quoted"]),
+
+    // Confirmed bookings
+    supabase
+      .from("bookings")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "confirmed"),
+
+    // Customers
+    supabase
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .eq("role", "user"),
+
+    // Upcoming confirmed events from today onwards
+    supabase
+      .from("bookings")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "confirmed")
+      .gte("event_date", todayStr),
+
+    // Published designs
     supabase
       .from("designs")
       .select("*", { count: "exact", head: true })
       .eq("status", "published")
       .is("deleted_at", null),
 
-    supabase
-      .from("bookings")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "pending"),
-
-    supabase
-      .from("bookings")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "confirmed")
-      .gte("event_date", startOfMonth)
-      .lte("event_date", endOfMonth),
-
+    // New requirements
     supabase
       .from("requirements")
       .select("*", { count: "exact", head: true })
       .eq("status", "new"),
 
-    supabase
-      .from("profiles")
-      .select("*", { count: "exact", head: true })
-      .eq("role", "user"),
 
     // Pending enquiries older than 24h
     supabase
@@ -153,46 +178,53 @@ export default async function AdminDashboardPage() {
 
   const kpiCards = [
     {
-      label: "Published Designs",
-      value: publishedDesignsCount || 0,
-      icon: Palette,
-      href: "/admin/designs",
+      label: "Total Enquiries",
+      value: totalEnquiriesCount || 0,
+      icon: ClipboardList,
+      href: "/admin/enquiries",
       color: "text-[#0B4A3A]",
       bg: "bg-[#0B4A3A]/10",
     },
     {
       label: "New Enquiries",
       value: pendingEnquiriesCount || 0,
-      icon: ClipboardList,
+      icon: Clock,
       href: "/admin/enquiries?status=pending",
       color: "text-amber-700",
       bg: "bg-amber-50",
       alert: (pendingEnquiriesCount || 0) > 0,
     },
     {
-      label: "Confirmed This Month",
-      value: confirmedThisMonthCount || 0,
-      icon: Calendar,
-      href: "/admin/calendar",
-      color: "text-[#0B4A3A]",
+      label: "Quoted Enquiries",
+      value: quotedEnquiriesCount || 0,
+      icon: Sparkles,
+      href: "/admin/enquiries?status=contacted",
+      color: "text-blue-700",
+      bg: "bg-blue-50",
+    },
+    {
+      label: "Confirmed Events",
+      value: confirmedTotalCount || 0,
+      icon: CheckCircle2,
+      href: "/admin/enquiries?status=confirmed",
+      color: "text-emerald-700",
       bg: "bg-emerald-50",
     },
     {
-      label: "New Leads (Requirements)",
-      value: newRequirementsCount || 0,
-      icon: Sparkles,
-      href: "/admin/requirements?status=new",
-      color: "text-blue-700",
-      bg: "bg-blue-50",
-      alert: (newRequirementsCount || 0) > 0,
-    },
-    {
-      label: "Registered Customers",
+      label: "Customers",
       value: totalCustomersCount || 0,
       icon: Users,
       href: "/admin/customers",
       color: "text-stone-700",
       bg: "bg-stone-100",
+    },
+    {
+      label: "Upcoming Events",
+      value: upcomingEventsCount || 0,
+      icon: Calendar,
+      href: "/admin/calendar",
+      color: "text-purple-700",
+      bg: "bg-purple-50",
     },
   ];
 
@@ -238,7 +270,7 @@ export default async function AdminDashboardPage() {
       </div>
 
       {/* KPI Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {kpiCards.map((kpi) => {
           const Icon = kpi.icon;
 

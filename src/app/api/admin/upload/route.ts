@@ -97,38 +97,50 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. Sharp: auto-rotate by EXIF, strip all metadata (including GPS), generate two WebP variants
-    const imagePipeline = sharp(rawBuffer).rotate(); // auto-rotates by EXIF orientation tag and strips EXIF
+    // 4. Sharp: auto-rotate by EXIF, strip metadata, generate three WebP variants (800, 1200, 2000)
+    const imagePipeline = sharp(rawBuffer).rotate();
 
-    // Card variant: max 800px wide, quality 78
+    // Card variant: max 800px wide, quality 84
     const cardBuffer = await imagePipeline
       .clone()
       .resize({ width: 800, withoutEnlargement: true })
-      .webp({ quality: 78 })
+      .webp({ quality: 84 })
       .toBuffer();
 
-    // Full variant: max 1600px wide, quality 80
+    // Medium variant: max 1200px wide, quality 84
+    const mediumBuffer = await imagePipeline
+      .clone()
+      .resize({ width: 1200, withoutEnlargement: true })
+      .webp({ quality: 84 })
+      .toBuffer();
+
+    // Full variant: max 2000px wide, quality 84
     const fullPipeline = imagePipeline
       .clone()
-      .resize({ width: 1600, withoutEnlargement: true })
-      .webp({ quality: 80 });
+      .resize({ width: 2000, withoutEnlargement: true })
+      .webp({ quality: 84 });
 
     const [fullBuffer, metadata] = await Promise.all([
       fullPipeline.toBuffer(),
       fullPipeline.metadata(),
     ]);
 
-    const totalBytes = cardBuffer.length + fullBuffer.length;
+    const totalBytes = cardBuffer.length + mediumBuffer.length + fullBuffer.length;
     const baseId = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
     const pathCard = `designs/card_${baseId}.webp`;
+    const pathMedium = `designs/med_${baseId}.webp`;
     const pathFull = `designs/full_${baseId}.webp`;
 
-    // 5. Upload both to Supabase Storage bucket 'design-images'
-    // Use service role if available for reliable serverless admin upload, otherwise use user client
+    // 5. Upload all to Supabase Storage bucket 'design-images' with 1-year immutable cacheControl
     const storageClient = getServiceRoleClient() || supabase;
 
-    const [uploadCard, uploadFull] = await Promise.all([
+    const [uploadCard, uploadMedium, uploadFull] = await Promise.all([
       storageClient.storage.from("design-images").upload(pathCard, cardBuffer, {
+        contentType: "image/webp",
+        cacheControl: "31536000",
+        upsert: true,
+      }),
+      storageClient.storage.from("design-images").upload(pathMedium, mediumBuffer, {
         contentType: "image/webp",
         cacheControl: "31536000",
         upsert: true,
@@ -156,6 +168,10 @@ export async function POST(request: NextRequest) {
     } = storageClient.storage.from("design-images").getPublicUrl(pathCard);
 
     const {
+      data: { publicUrl: urlMedium },
+    } = storageClient.storage.from("design-images").getPublicUrl(pathMedium);
+
+    const {
       data: { publicUrl: urlFull },
     } = storageClient.storage.from("design-images").getPublicUrl(pathFull);
 
@@ -181,9 +197,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         id: baseId,
         url_card: urlCard,
+        url_medium: urlMedium,
         url_full: urlFull,
         url: urlFull, // backwards compatibility
         path_card: pathCard,
+        path_medium: pathMedium,
         path_full: pathFull,
         bytes_total: totalBytes,
       });
@@ -201,9 +219,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       id: mediaRow.id,
       url_card: mediaRow.url_card,
+      url_medium: urlMedium,
       url_full: mediaRow.url_full,
       url: mediaRow.url_full, // for backwards compatibility with any existing components
       path_card: mediaRow.path_card,
+      path_medium: pathMedium,
       path_full: mediaRow.path_full,
       bytes_total: mediaRow.bytes_total,
       width: mediaRow.width,

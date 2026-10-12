@@ -97,10 +97,13 @@ function LoginForm() {
 
   return (
     <div className="min-h-screen bg-[#FAF6EC] flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-3xl shadow-xl border border-[#E8E2D5] p-8 sm:p-10">
+      <div className="max-w-md w-full bg-white rounded-3xl shadow-xl border border-[#E8E2D5] p-8 sm:p-10 relative overflow-hidden animate-fade-up">
+        {/* Top Gold Accent Bar */}
+        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-gold-500 via-gold-300 to-gold-500" />
+
         {/* Brand Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#0B4A3A] text-[#C9A24B] shadow-md mb-4">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#0B4A3A] text-[#C9A24B] shadow-md mb-4 border border-[#C9A24B]/30">
             <Shield size={28} />
           </div>
           <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[#17211E]">
@@ -120,7 +123,7 @@ function LoginForm() {
             >
               Email Address
             </label>
-            <div className="relative">
+            <div className="relative group">
               <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#5D6D67] pointer-events-none">
                 <Mail size={18} />
               </div>
@@ -135,6 +138,7 @@ function LoginForm() {
                 disabled={loading || lockoutTime > 0}
                 className="w-full min-h-[44px] text-[16px] sm:text-sm pl-11 pr-4 py-2.5 rounded-xl border border-[#E8E2D5] bg-[#FAF6EC]/50 text-[#17211E] placeholder:text-[#5D6D67]/60 focus:outline-none focus:ring-2 focus:ring-[#0B4A3A] focus:border-transparent transition-all"
               />
+              <div className="absolute bottom-0 left-3 right-3 h-[2px] bg-gradient-to-r from-gold-500 via-gold-300 to-gold-500 scale-x-0 group-focus-within:scale-x-100 transition-transform duration-300 ease-out origin-center rounded-full pointer-events-none" />
             </div>
           </div>
 
@@ -146,7 +150,7 @@ function LoginForm() {
             >
               Password
             </label>
-            <div className="relative">
+            <div className="relative group">
               <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#5D6D67] pointer-events-none">
                 <Lock size={18} />
               </div>
@@ -161,6 +165,7 @@ function LoginForm() {
                 disabled={loading || lockoutTime > 0}
                 className="w-full min-h-[44px] text-[16px] sm:text-sm pl-11 pr-11 py-2.5 rounded-xl border border-[#E8E2D5] bg-[#FAF6EC]/50 text-[#17211E] placeholder:text-[#5D6D67]/60 focus:outline-none focus:ring-2 focus:ring-[#0B4A3A] focus:border-transparent transition-all"
               />
+              <div className="absolute bottom-0 left-3 right-3 h-[2px] bg-gradient-to-r from-gold-500 via-gold-300 to-gold-500 scale-x-0 group-focus-within:scale-x-100 transition-transform duration-300 ease-out origin-center rounded-full pointer-events-none" />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}

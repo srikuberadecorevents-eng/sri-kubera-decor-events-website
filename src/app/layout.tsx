@@ -1,11 +1,48 @@
 import type { Metadata } from "next";
+import { Inter, Playfair_Display, Noto_Sans_Tamil } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import WhatsAppButton from "@/components/layout/WhatsAppButton";
+import DynamicRequirementPromptModal from "@/components/ui/DynamicRequirementPromptModal";
+import DynamicSignupPromptModal from "@/components/ui/DynamicSignupPromptModal";
 import { Toaster } from "react-hot-toast";
 
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+  variable: "--font-inter",
+  fallback: ["system-ui", "-apple-system", "sans-serif"],
+  adjustFontFallback: true,
+});
+
+const playfair = Playfair_Display({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  display: "swap",
+  variable: "--font-playfair",
+  fallback: ["Georgia", "serif"],
+  adjustFontFallback: true,
+});
+
+const notoTamil = Noto_Sans_Tamil({
+  subsets: ["tamil"],
+  weight: ["400", "600"],
+  display: "swap",
+  variable: "--font-tamil",
+  fallback: ["sans-serif"],
+  adjustFontFallback: true,
+  preload: false,
+});
+
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL || "https://srikuberadecorevents.in"
+  ),
+  alternates: {
+    canonical: "./",
+  },
   title: {
     default: "Sri Kubera Decor & Events — We Decor Your Dreams",
     template: "%s | Sri Kubera Decor & Events",
@@ -37,22 +74,63 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  name: "Sri Kubera Decor & Events",
+  image: "https://srikuberadecorevents.in/assets/marriage-01.jpeg",
+  telephone: "+917373876879",
+  url: "https://srikuberadecorevents.in",
+  priceRange: "₹₹",
+  address: {
+    "@type": "PostalAddress",
+    streetAddress: "No. 80, Manjini Nagar",
+    addressLocality: "Puducherry",
+    postalCode: "605003",
+    addressCountry: "IN",
+  },
+  geo: {
+    "@type": "GeoCoordinates",
+    latitude: 11.9416,
+    longitude: 79.8083,
+  },
+  areaServed: ["Puducherry", "Cuddalore", "Villupuram", "Tamil Nadu"],
+  openingHoursSpecification: {
+    "@type": "OpeningHoursSpecification",
+    dayOfWeek: [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+      "Sunday",
+    ],
+    opens: "08:00",
+    closes: "21:00",
+  },
+};
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" data-scroll-behavior="smooth">
+    <html
+      lang="en"
+      className={`${inter.variable} ${playfair.variable} ${notoTamil.variable}`}
+      data-scroll-behavior="smooth"
+    >
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400..800;1,400..800&family=Noto+Sans+Tamil:wght@400;500;600;700&display=swap"
-          rel="stylesheet"
+        <link rel="preconnect" href="https://deuwslifdqwrijiahltm.supabase.co" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://deuwslifdqwrijiahltm.supabase.co" />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body>
+      <body className="min-h-screen flex flex-col">
         <Toaster
           position="top-right"
           toastOptions={{
@@ -75,9 +153,11 @@ export default function RootLayout({
         />
         <Header />
         {/* pt-16 = 64px = header height */}
-        <main className="min-h-screen pt-16">{children}</main>
+        <main className="flex-1 pt-16">{children}</main>
         <Footer />
         <WhatsAppButton />
+        <DynamicRequirementPromptModal />
+        <DynamicSignupPromptModal />
       </body>
     </html>
   );

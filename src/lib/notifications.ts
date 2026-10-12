@@ -52,13 +52,13 @@ export async function sendEnquiryNotificationEmail(params: EnquiryNotificationPa
   try {
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
-      console.log("Resend API key not configured; skipping enquiry email notification");
+      console.info("Resend API key not configured; skipping enquiry email notification");
       return;
     }
 
     const toEmail = await getAdminNotificationEmail();
     if (!toEmail) {
-      console.log("No notification email found for admin; skipping enquiry notification");
+      console.info("No notification email found for admin; skipping enquiry notification");
       return;
     }
 
@@ -98,13 +98,13 @@ export async function sendRequirementNotificationEmail(params: RequirementNotifi
   try {
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
-      console.log("Resend API key not configured; skipping requirement email notification");
+      console.info("Resend API key not configured; skipping requirement email notification");
       return;
     }
 
     const toEmail = await getAdminNotificationEmail();
     if (!toEmail) {
-      console.log("No notification email found for admin; skipping requirement notification");
+      console.info("No notification email found for admin; skipping requirement notification");
       return;
     }
 

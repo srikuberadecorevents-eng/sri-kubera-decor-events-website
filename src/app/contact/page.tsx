@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import ContactClientPage from "./ContactClient";
+import ContactClientPage from "@/components/sections/ContactClient";
 
 export const metadata: Metadata = {
   title: "Contact Us",

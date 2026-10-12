@@ -1,22 +1,30 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
+import dynamic from "next/dynamic";
 import {
   ArrowRight,
   Phone,
   CheckCircle,
   Star,
   Quote,
-  Megaphone,
+  Sparkles,
+  Award,
+  Shield,
+  MessageCircle,
+  Clock,
+  ShieldCheck,
+  FileCheck,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/server";
 import DesignCard from "@/components/ui/DesignCard";
-import HeroCounter from "@/components/ui/HeroCounter";
 import OccasionCard from "@/components/ui/OccasionCard";
-import PostRequirementSection from "@/components/sections/PostRequirementSection";
-import SignupPromptModal from "@/components/ui/SignupPromptModal";
+import HeroSlideshow from "@/components/sections/HeroSlideshow";
+import AnimatedCounter from "@/components/ui/AnimatedCounter";
 import type { HeroSlide } from "@/types";
 import { INITIAL_DESIGNS } from "@/data/initialDesigns";
+
+import GatedGalleryLink from "@/components/ui/GatedGalleryLink";
+import DynamicPostRequirement from "@/components/sections/DynamicPostRequirement";
 
 export const revalidate = 60; // Cache with ISR; revalidated on admin actions
 
@@ -68,49 +76,50 @@ const defaultOccasions = [
   },
 ];
 
-const whyUsPoints = [
-  "Specialized stage decoration expertise across Puducherry",
-  "Fresh flowers, hand-crafted backdrops & premium ambient lighting",
-  "Dedicated on-site coordination team ensuring seamless execution",
-  "Bespoke designs tailored to your cultural traditions and venue space",
-  "Transparent, direct pricing with zero hidden vendor markups",
-];
-
 export default async function HomePage() {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
 
-  // Fetch all initial data concurrently in parallel
-  const [
-    { data: siteContentRows },
-    { data: businessSettings },
-    { data: publishedDesigns },
-    { data: publishedTestimonials },
-    { data: activeCategories },
-  ] = await Promise.all([
-    supabase.from("site_content").select("*"),
-    supabase.from("business_settings").select("*").limit(1).maybeSingle(),
-    supabase
-      .from("designs")
-      .select("*, categories(id, name, created_at)")
-      .eq("status", "published")
-      .is("deleted_at", null)
-      .order("is_featured", { ascending: false })
-      .order("sort_order", { ascending: true })
-      .order("created_at", { ascending: false })
-      .limit(30),
-    supabase
-      .from("testimonials")
-      .select("*")
-      .eq("is_published", true)
-      .order("sort_order", { ascending: true })
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("categories")
-      .select("*")
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true })
-      .limit(4),
-  ]);
+  let siteContentRows: any[] | null = null;
+  let businessSettings: any = null;
+  let publishedDesigns: any[] | null = null;
+  let publishedTestimonials: any[] | null = null;
+  let activeCategories: any[] | null = null;
+
+  try {
+    const results = await Promise.all([
+      supabase.from("site_content").select("key, value"),
+      supabase.from("business_settings").select("*").limit(1).maybeSingle(),
+      supabase
+        .from("designs")
+        .select("id, title, image_url, category_id, is_featured, sort_order, categories(id, name)")
+        .eq("status", "published")
+        .is("deleted_at", null)
+        .order("is_featured", { ascending: false })
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: false })
+        .limit(16),
+      supabase
+        .from("testimonials")
+        .select("id, customer_name, event_type, rating, quote, sort_order")
+        .eq("is_published", true)
+        .order("sort_order", { ascending: true })
+        .limit(6),
+      supabase
+        .from("categories")
+        .select("id, name, cover_url, sort_order")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+        .limit(4),
+    ]);
+
+    siteContentRows = results[0].data;
+    businessSettings = results[1].data;
+    publishedDesigns = results[2].data;
+    publishedTestimonials = results[3].data;
+    activeCategories = results[4].data;
+  } catch (err) {
+    console.warn("HomePage: Database fetch warning, using built-in fallbacks:", err);
+  }
 
   const siteContent: Record<string, any> = {};
   if (siteContentRows) {
@@ -122,7 +131,6 @@ export default async function HomePage() {
   const heroSlides: HeroSlide[] = Array.isArray(siteContent.hero_slides)
     ? siteContent.hero_slides
     : [];
-  const activeSlide = heroSlides[0];
 
   const announcement = siteContent.announcement as
     | { text?: string; is_active?: boolean }
@@ -145,7 +153,7 @@ export default async function HomePage() {
     dynamicStats.push({ value: statsData.years, suffix: "+", label: "Years of Experience" });
   }
   if (statsData?.happy_customers && statsData.happy_customers > 0) {
-    dynamicStats.push({ value: statsData.happy_customers, suffix: "+", label: "Happy Customers" });
+    dynamicStats.push({ value: statsData.happy_customers, suffix: "+", label: "Happy Families" });
   }
 
   const businessPhone = businessSettings?.phone || "7373876879";
@@ -191,122 +199,39 @@ export default async function HomePage() {
         })
       : defaultOccasions;
 
-  const heroImageUrl =
-    activeSlide?.image_url &&
-    !activeSlide.image_url.includes("120000.jpeg") &&
-    !activeSlide.image_url.includes("25000.jpeg")
-      ? activeSlide.image_url
-      : "/assets/marriage-01.jpeg";
-
   return (
     <>
-      {/* ─────────────────── ANNOUNCEMENT BAR (if active) ─────────────────── */}
-      {announcement?.is_active && announcement?.text && (
-        <div className="bg-[#0B4A3A] text-[#FAF6EC] px-4 py-2.5 text-center text-sm font-medium border-b border-[#C9A24B]/30 flex items-center justify-center gap-2">
-          <Megaphone size={16} className="text-[#C9A24B] shrink-0" />
-          <span>{announcement.text}</span>
-        </div>
-      )}
+      {/* ─────────────────── HERO WITH DYNAMIC IMAGE SLIDESHOW ─────────────────── */}
+      <HeroSlideshow
+        dbSlides={heroSlides}
+        businessPhone={businessPhone}
+        dynamicStats={dynamicStats}
+        announcement={announcement}
+      />
 
-      {/* ─────────────────── HERO ─────────────────── */}
+      {/* ─────────────────── OCCASION TILES ("WHAT WE DO") ─────────────────── */}
       <section
-        className="relative min-h-[92svh] flex items-center justify-center overflow-hidden"
-        aria-label="Hero"
+        className="py-12 md:py-16 bg-gradient-to-b from-[#FAF6EC] via-white to-[#FAF6EC] relative overflow-hidden"
+        aria-labelledby="occasions-heading"
       >
-        {/* Background photo */}
-        <div className="absolute inset-0 overflow-hidden">
-          <Image
-            src={heroImageUrl}
-            alt="Sri Kubera Decor & Events - Stage Decoration in Puducherry"
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover animate-zoom-slow"
-          />
-          {/* Emerald-dark gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-b from-[#06261E]/85 via-[#0B4A3A]/75 to-[#06261E]/90" />
-          {/* subtle gold pattern */}
-          <div
-            className="absolute inset-0 opacity-10 mix-blend-soft-light"
-            style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg width='48' height='48' viewBox='0 0 48 48' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23C9A24B' fill-opacity='0.6'%3E%3Ccircle cx='24' cy='24' r='1.2'/%3E%3C/g%3E%3C/svg%3E")`,
-            }}
-            aria-hidden="true"
-          />
-        </div>
+        {/* Subtle Ambient Radial Highlight */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-48 bg-gold-400/10 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Content */}
-        <div className="relative page-container text-center py-28 md:py-36">
-          {/* Eye-brow */}
-          <p className="section-label text-[#C9A24B] animate-fade-up mb-5">
-            {businessSettings?.tagline || "Puducherry's Premier Decoration Studio"}
-          </p>
-
-          {/* H1 */}
-          <h1
-            className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-white leading-[1.08] mb-6 animate-fade-up delay-100"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            {activeSlide?.headline ? (
-              activeSlide.headline
-            ) : (
-              <>
-                We Decor
-                <br />
-                <span className="text-gradient-gold">Your Dreams</span>
-              </>
-            )}
-          </h1>
-
-          {/* Sub-copy */}
-          <p className="text-[#FAF6EC]/85 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed mb-10 animate-fade-up delay-200">
-            {activeSlide?.subheadline ||
-              "Crafting unforgettable stage decorations for birthdays, marriages, baby showers, and special events across Puducherry."}
-          </p>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-up delay-300">
-            <Link href="/gallery" className="btn-gold px-9 py-4 text-base">
-              Browse Our Gallery
-              <ArrowRight size={18} />
-            </Link>
-            <a
-              href={`tel:${businessPhone}`}
-              className="inline-flex items-center gap-2.5 px-9 py-4 rounded-full border-2 border-white/40 text-white hover:border-[#C9A24B] hover:text-[#C9A24B] font-bold text-base tracking-wide transition-all duration-200"
-            >
-              <Phone size={18} />
-              Call {businessPhone}
-            </a>
-          </div>
-
-          {/* Quick stats bar (rendered only if proprietor filled them in) */}
-          {dynamicStats.length > 0 && (
-            <div className="mt-16 grid grid-cols-1 sm:grid-cols-3 gap-px bg-white/10 rounded-2xl overflow-hidden max-w-2xl mx-auto animate-fade-up delay-400">
-              {dynamicStats.map((s) => (
-                <div key={s.label} className="bg-[#06261E]/70 backdrop-blur-sm px-4 py-5 text-center">
-                  <HeroCounter target={s.value} suffix={s.suffix} />
-                  <p className="text-white/70 text-xs mt-1 leading-tight">{s.label}</p>
-                </div>
-              ))}
+        <div className="page-container relative z-10">
+          <div className="text-center max-w-2xl mx-auto mb-10">
+            <div className="section-eyebrow text-bronze mb-3">
+              <Sparkles size={13} className="text-bronze" />
+              <span>What We Create</span>
             </div>
-          )}
-        </div>
-
-        {/* Scroll cue */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 animate-fade-up delay-600" aria-hidden="true">
-          <span className="text-white/50 text-xs tracking-widest uppercase">Scroll</span>
-          <div className="w-px h-8 bg-gradient-to-b from-white/50 to-transparent" />
-        </div>
-      </section>
-
-      {/* ─────────────────── OCCASION TILES ─────────────────── */}
-      <section className="py-24 bg-[#FAF6EC]" aria-labelledby="occasions-heading">
-        <div className="page-container">
-          <div className="text-center mb-14">
-            <p className="section-label mb-3">What We Do</p>
-            <h2 id="occasions-heading" className="section-title">Every Occasion, Perfectly Decorated</h2>
-            <div className="gold-divider mx-auto mt-5" />
-            <p className="section-subtitle mx-auto mt-5">
-              From grand wedding stages to vibrant birthday and baby shower celebrations, we bring your vision to life with precision and artistry.
+            <h2
+              id="occasions-heading"
+              className="section-heading-serif text-3xl sm:text-4xl"
+            >
+              Artistry For Every Sacred Celebration
+            </h2>
+            <div className="gold-divider mx-auto mt-4" />
+            <p className="text-navy-700 text-sm sm:text-base leading-relaxed mt-4">
+              From grand royal wedding mandapams to enchanting birthdays and baby shower setups, every design is customized to your venue and dreams.
             </p>
           </div>
 
@@ -318,45 +243,66 @@ export default async function HomePage() {
                 cat.cover_url || cat.image || meta.image || "/assets/marriage-01.jpeg";
               const sub = cat.subtitle || meta.subtitle || "Stage decoration";
               return (
-                <OccasionCard
+                <div
                   key={cat.id || i}
-                  id={cat.id || ""}
-                  title={title}
-                  subtitle={sub}
-                  image={cover}
-                  animationDelay={`${i * 0.1}s`}
-                />
+                  className="scroll-zoom group"
+                  style={{ transitionDelay: `${i * 120}ms` }}
+                >
+                  <OccasionCard
+                    id={cat.id || ""}
+                    title={title}
+                    subtitle={sub}
+                    image={cover}
+                    animationDelay={`${i * 0.1}s`}
+                  />
+                </div>
               );
             })}
           </div>
         </div>
       </section>
 
-      {/* ─────────────────── FEATURED DESIGNS ─────────────────── */}
+      {/* ─────────────────── FEATURED DESIGNS PORTFOLIO ─────────────────── */}
       {curatedFeatured.length > 0 && (
-        <section className="py-24 bg-white" aria-labelledby="featured-heading">
+        <section
+          className="py-12 md:py-16 bg-white relative overflow-hidden"
+          aria-labelledby="featured-heading"
+        >
           <div className="page-container">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-14">
-              <div>
-                <p className="section-label mb-3">Our Portfolio</p>
-                <h2 id="featured-heading" className="section-title">Featured Stage Designs</h2>
-                <div className="gold-divider mt-5" />
-                <p className="section-subtitle mt-5">
-                  A glimpse into our recent work — each design is crafted with care, creativity, and meticulous attention to detail.
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
+              <div className="max-w-2xl">
+                <div className="section-eyebrow text-bronze mb-3">
+                  <Star size={13} className="text-bronze" />
+                  <span>Curated Portfolio</span>
+                </div>
+                <h2
+                  id="featured-heading"
+                  className="section-heading-serif text-3xl sm:text-4xl"
+                >
+                  Featured Stage Creations
+                </h2>
+                <div className="gold-divider mt-4" />
+                <p className="text-navy-700 text-sm sm:text-base leading-relaxed mt-4">
+                  A glimpse into our recent event stages — crafted with passion, floral precision, and grand architectural backdrops.
                 </p>
               </div>
-              <Link href="/gallery" className="btn-outline shrink-0">
-                View All Designs
-                <ArrowRight size={16} />
-              </Link>
+
+              <GatedGalleryLink
+                href="/gallery"
+                id="view-full-gallery-btn"
+                className="btn-gold px-6 py-3 text-xs flex items-center gap-2 shrink-0 self-start md:self-auto"
+              >
+                <span>View Full Gallery</span>
+                <ArrowRight size={15} />
+              </GatedGalleryLink>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {curatedFeatured.map((design, i) => (
                 <div
                   key={design.id}
-                  className="animate-fade-up"
-                  style={{ animationDelay: `${i * 0.08}s` }}
+                  className="scroll-zoom group"
+                  style={{ transitionDelay: `${i * 90}ms` }}
                 >
                   <DesignCard design={design as any} />
                 </div>
@@ -366,120 +312,243 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* ─────────────────── WHY US / ABOUT ─────────────────── */}
-      <section className="py-24 bg-gradient-to-br from-[#0B4A3A] to-[#06261E]" aria-labelledby="whyus-heading">
-        <div className="page-container">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            {/* Text side */}
-            <div>
-              <p className="section-label text-[#C9A24B] mb-3">Our Promise</p>
-              <h2
-                id="whyus-heading"
-                className="text-3xl md:text-4xl font-bold text-white mb-5"
-                style={{ fontFamily: "var(--font-display)" }}
-              >
-                Why Choose Sri Kubera Decor?
-              </h2>
-              <div className="gold-divider mb-8" />
+      {/* ─────────────────── WHY FAMILIES TRUST US ("THE KUBERA STANDARD") ─────────────────── */}
+      <section
+        className="py-12 md:py-16 lg:py-20 bg-[#FAF6EC] border-y border-[#E8E2D5] relative overflow-hidden"
+        aria-labelledby="whyus-heading"
+      >
+        {/* Subtle Warm Ambient Radial Accent */}
+        <div className="absolute top-0 right-1/4 w-96 h-96 bg-gold-400/10 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute bottom-0 left-1/4 w-80 h-80 bg-gold-500/10 rounded-full blur-[90px] pointer-events-none" />
 
-              {aboutData?.text ? (
-                <div className="text-white/80 text-base leading-relaxed mb-8 whitespace-pre-line">
-                  {aboutData.text}
+        <div className="page-container relative z-10">
+          {/* Section Header: Editorial Serif Heading with Thin Gold Divider */}
+          <div className="text-center max-w-2xl mx-auto mb-12 sm:mb-16">
+            <div className="section-eyebrow text-bronze mb-3">
+              <Shield size={13} className="text-bronze" />
+              <span>The Kubera Standard</span>
+            </div>
+            <h2
+              id="whyus-heading"
+              className="section-heading-serif text-3xl sm:text-4xl md:text-5xl mb-3"
+            >
+              Why Families Trust Us For Their Grandest Moments
+            </h2>
+            <div className="gold-divider mx-auto mb-4" />
+            <p className="text-navy-700/80 text-sm sm:text-base leading-relaxed">
+              Verifiable experience, strict timelines, and direct artisan accountability for every stage decoration across Puducherry.
+            </p>
+          </div>
+
+          {/* 4 Concrete Proof Pillars (Stat and Icon Columns) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+            {/* 1. Track Record */}
+            <div className="scroll-zoom luxury-card p-6 sm:p-7 flex flex-col justify-between group">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-12 h-12 rounded-xl bg-gold-50 border border-gold-300/40 flex items-center justify-center text-bronze group-hover:scale-105 group-hover:bg-gold-100 transition-all shadow-xs">
+                    <Award size={22} className="text-bronze" />
+                  </div>
+                  <span className="text-[10px] font-bold text-bronze uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-gold-50 border border-gold-200/60">
+                    Track Record
+                  </span>
                 </div>
-              ) : (
-                <ul className="space-y-4 mb-8">
-                  {whyUsPoints.map((item, i) => (
-                    <li key={i} className="flex items-start gap-3">
-                      <CheckCircle size={20} className="text-[#C9A24B] mt-0.5 shrink-0" aria-hidden="true" />
-                      <span className="text-white/85 text-base leading-relaxed">{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              {aboutData?.proprietor && (
-                <div className="border-t border-white/10 pt-4 mb-8">
-                  <p className="text-[#C9A24B] text-xs font-semibold uppercase tracking-wider">Proprietor</p>
-                  <p className="text-white text-base font-bold">{aboutData.proprietor}</p>
-                </div>
-              )}
-
-              <div className="flex flex-wrap gap-4">
-                <Link href="/gallery" className="btn-gold">
-                  Browse Designs
-                </Link>
-                <Link
-                  href="/contact"
-                  className="inline-flex items-center gap-2 px-7 py-3 rounded-full border-2 border-white/30 text-white hover:border-[#C9A24B] hover:text-[#C9A24B] font-bold text-sm tracking-wide transition-all"
+                <p
+                  className="text-3xl sm:text-4xl font-bold text-navy-950 mb-1 group-hover:text-gold-700 transition-colors leading-none"
+                  style={{ fontFamily: "var(--font-playfair), Georgia, serif" }}
                 >
-                  Contact Us
-                </Link>
+                  <AnimatedCounter
+                    value={statsData?.events_done && statsData.events_done > 0 ? statsData.events_done : 1500}
+                    suffix="+"
+                  />
+                </p>
+                <h3 className="text-sm sm:text-base font-bold text-navy-900 mb-2">
+                  Stages Decorated
+                </h3>
+                <p className="text-navy-600 text-xs sm:text-[13px] leading-relaxed">
+                  {aboutData?.years_in_business || statsData?.years || 12}+ years of continuous styling mastery across Puducherry mandapams, banquet halls, and private venues.
+                </p>
               </div>
             </div>
 
-            {/* Dynamic Stats Grid or Trust Badges */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              {dynamicStats.length > 0 ? (
-                dynamicStats.map((s, i) => (
-                  <div
-                    key={s.label}
-                    className="bg-white/10 border border-white/15 rounded-2xl p-7 text-center backdrop-blur-sm"
-                  >
-                    <p className="text-5xl font-bold text-[#C9A24B] leading-none mb-2" style={{ fontFamily: "var(--font-display)" }}>
-                      {s.value}{s.suffix}
-                    </p>
-                    <p className="text-white/80 text-sm">{s.label}</p>
+            {/* 2. Punctuality Guarantee */}
+            <div className="scroll-zoom luxury-card p-6 sm:p-7 flex flex-col justify-between group">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-12 h-12 rounded-xl bg-gold-50 border border-gold-300/40 flex items-center justify-center text-bronze group-hover:scale-105 group-hover:bg-gold-100 transition-all shadow-xs">
+                    <Clock size={22} className="text-bronze" />
                   </div>
-                ))
-              ) : (
-                <>
-                  <div className="bg-white/10 border border-white/15 rounded-2xl p-7 text-center backdrop-blur-sm">
-                    <p className="text-xl font-bold text-white mb-2">Puducherry Based</p>
-                    <p className="text-white/70 text-xs">Local expertise &amp; dedicated on-time venue setup</p>
+                  <span className="text-[10px] font-bold text-bronze uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-gold-50 border border-gold-200/60">
+                    Punctuality
+                  </span>
+                </div>
+                <p
+                  className="text-3xl sm:text-4xl font-bold text-navy-950 mb-1 group-hover:text-gold-700 transition-colors leading-none"
+                  style={{ fontFamily: "var(--font-playfair), Georgia, serif" }}
+                >
+                  <AnimatedCounter value={100} suffix="%" />
+                </p>
+                <h3 className="text-sm sm:text-base font-bold text-navy-900 mb-2">
+                  On-Time Handover
+                </h3>
+                <p className="text-navy-600 text-xs sm:text-[13px] leading-relaxed">
+                  Stage structures, drapery, and calibrated LED lights are completed and inspected 2 hours before rituals and guests arrive.
+                </p>
+              </div>
+            </div>
+
+            {/* 3. Direct Supervision */}
+            <div className="scroll-zoom luxury-card p-6 sm:p-7 flex flex-col justify-between group">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-12 h-12 rounded-xl bg-gold-50 border border-gold-300/40 flex items-center justify-center text-bronze group-hover:scale-105 group-hover:bg-gold-100 transition-all shadow-xs">
+                    <ShieldCheck size={22} className="text-bronze" />
                   </div>
-                  <div className="bg-white/10 border border-white/15 rounded-2xl p-7 text-center backdrop-blur-sm">
-                    <p className="text-xl font-bold text-white mb-2">Custom Themes</p>
-                    <p className="text-white/70 text-xs">Floral, modern drapes, and traditional stage decor</p>
+                  <span className="text-[10px] font-bold text-bronze uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-gold-50 border border-gold-200/60">
+                    Accountability
+                  </span>
+                </div>
+                <p
+                  className="text-xl sm:text-2xl font-bold text-navy-950 mb-1 leading-tight group-hover:text-gold-700 transition-colors"
+                  style={{ fontFamily: "var(--font-playfair), Georgia, serif" }}
+                >
+                  {aboutData?.proprietor || "Mr. S. Saravanan"}
+                </p>
+                <h3 className="text-sm sm:text-base font-bold text-navy-900 mb-2">
+                  On-Site Supervision
+                </h3>
+                <p className="text-navy-600 text-xs sm:text-[13px] leading-relaxed">
+                  Direct master craftsman oversight on every venue. You deal directly with our founder with zero third-party broker markups.
+                </p>
+              </div>
+            </div>
+
+            {/* 4. Upfront Pricing */}
+            <div className="scroll-zoom luxury-card p-6 sm:p-7 flex flex-col justify-between group">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-12 h-12 rounded-xl bg-gold-50 border border-gold-300/40 flex items-center justify-center text-bronze group-hover:scale-105 group-hover:bg-gold-100 transition-all shadow-xs">
+                    <FileCheck size={22} className="text-bronze" />
                   </div>
-                </>
-              )}
+                  <span className="text-[10px] font-bold text-bronze uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-gold-50 border border-gold-200/60">
+                    Transparency
+                  </span>
+                </div>
+                <p
+                  className="text-3xl sm:text-4xl font-bold text-navy-950 mb-1 group-hover:text-gold-700 transition-colors leading-none"
+                  style={{ fontFamily: "var(--font-playfair), Georgia, serif" }}
+                >
+                  Zero
+                </p>
+                <h3 className="text-sm sm:text-base font-bold text-navy-900 mb-2">
+                  Hidden Surcharges
+                </h3>
+                <p className="text-navy-600 text-xs sm:text-[13px] leading-relaxed">
+                  Transparent, all-inclusive quotations covering stage frames, fresh flowers, and lighting. The agreed price is all you pay.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Reassurance & Direct Action Bar */}
+          <div className="luxury-card p-5 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5 text-center sm:text-left">
+              <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-gold-500 to-gold-300 flex items-center justify-center text-navy-950 font-bold text-sm shadow-md shrink-0">
+                SK
+              </div>
+              <div>
+                <p className="text-xs font-bold text-bronze uppercase tracking-widest leading-none">
+                  Sri Kubera Decor &amp; Events
+                </p>
+                <p className="text-navy-950 text-sm sm:text-base font-bold mt-1">
+                  Have a specific venue in mind? Talk directly with {aboutData?.proprietor || "Mr. Saravanan"}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <GatedGalleryLink
+                href="/gallery"
+                id="browse-stages-btn"
+                className="btn-gold px-5 py-2.5 text-xs text-center flex-1 sm:flex-none"
+              >
+                Browse Stages
+              </GatedGalleryLink>
+              <a
+                href={`tel:${businessPhone}`}
+                className="btn-outline px-5 py-2.5 text-xs text-center flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5"
+              >
+                <Phone size={13} />
+                <span>Call {businessPhone}</span>
+              </a>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ─────────────────── TESTIMONIALS (rendered only if published) ─────────────────── */}
+      {/* ─────────────────── CLIENT TESTIMONIALS ─────────────────── */}
       {publishedTestimonials && publishedTestimonials.length > 0 && (
-        <section className="py-24 bg-[#FAF6EC]" aria-labelledby="testimonials-heading">
+        <section
+          className="py-12 md:py-16 bg-white border-b border-[#E8E2D5] relative overflow-hidden"
+          aria-labelledby="testimonials-heading"
+        >
           <div className="page-container">
-            <div className="text-center mb-14">
-              <p className="section-label mb-3">Client Stories</p>
-              <h2 id="testimonials-heading" className="section-title">Stories from Happy Families</h2>
-              <div className="gold-divider mx-auto mt-5" />
+            <div className="text-center max-w-2xl mx-auto mb-10">
+              <div className="section-eyebrow text-bronze mb-3">
+                <Quote size={13} className="text-bronze" />
+                <span>Client Experiences</span>
+              </div>
+              <h2
+                id="testimonials-heading"
+                className="section-heading-serif text-3xl sm:text-4xl"
+              >
+                Heartfelt Stories From Our Clients
+              </h2>
+              <div className="gold-divider mx-auto mt-4" />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {publishedTestimonials.map((t) => (
+              {publishedTestimonials.map((t, idx) => (
                 <div
                   key={t.id}
-                  className="card p-8 relative rounded-2xl bg-white shadow-sm border border-[#C9A24B]/20"
+                  className="scroll-zoom luxury-card p-6 sm:p-7 relative flex flex-col justify-between"
+                  style={{ transitionDelay: `${idx * 100}ms` }}
                 >
-                  <Quote size={28} className="text-[#C9A24B]/50 mb-3" aria-hidden="true" />
-                  {t.rating && (
-                    <div className="flex gap-1 mb-3">
-                      {Array.from({ length: t.rating }).map((_, si) => (
-                        <Star key={si} size={14} className="text-[#C9A24B] fill-[#C9A24B]" aria-hidden="true" />
-                      ))}
-                    </div>
-                  )}
-                  <p className="text-[#1F2925] text-sm leading-relaxed mb-6 italic">
-                    &ldquo;{t.quote}&rdquo;
-                  </p>
-                  <div className="border-t border-[#FAF6EC] pt-4">
-                    <p className="font-semibold text-[#06261E] text-sm">{t.customer_name}</p>
-                    {t.event_type && <p className="text-[#5D6D67] text-xs mt-0.5">{t.event_type}</p>}
+                  <div>
+                    {t.rating && (
+                      <div className="flex gap-1 mb-3">
+                        {Array.from({ length: t.rating }).map((_, si) => (
+                          <Star
+                            key={si}
+                            size={14}
+                            className="text-gold-500 fill-gold-500"
+                            aria-hidden="true"
+                          />
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-navy-800 text-sm leading-relaxed mb-6 italic">
+                      &ldquo;{t.quote}&rdquo;
+                    </p>
                   </div>
-                  <div className="absolute top-0 left-8 w-8 h-0.5 bg-[#C9A24B] rounded-full" aria-hidden="true" />
+
+                  <div className="pt-4 border-t border-ivory-200 flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-navy-900 to-emerald-950 text-gold-300 flex items-center justify-center font-bold text-xs ring-1 ring-gold-400/30 shrink-0">
+                      {t.customer_name?.charAt(0) || "C"}
+                    </div>
+                    <div>
+                      <p className="font-bold text-navy-950 text-sm leading-none">
+                        {t.customer_name}
+                      </p>
+                      {t.event_type && (
+                        <p className="text-navy-500 text-xs mt-1">{t.event_type}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div
+                    className="absolute top-0 left-8 w-10 h-1 bg-gradient-to-r from-gold-500 to-gold-300 rounded-full"
+                    aria-hidden="true"
+                  />
                 </div>
               ))}
             </div>
@@ -487,38 +556,60 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* ─────────────────── POST YOUR REQUIREMENT ─────────────────── */}
-      <PostRequirementSection />
+      {/* ─────────────────── POST REQUIREMENT FORM ─────────────────── */}
+      <DynamicPostRequirement />
 
-      {/* ─────────────────── CTA BANNER ─────────────────── */}
-      <section className="py-24 bg-white" aria-labelledby="cta-heading">
-        <div className="page-container text-center">
-          <p className="section-label mb-4">Ready to Begin?</p>
-          <h2 id="cta-heading" className="section-title mb-5">
-            Create Something Truly Beautiful
-          </h2>
-          <div className="gold-divider mx-auto mb-7" />
-          <p className="section-subtitle mx-auto mb-10">
-            Browse our design catalogue, pick a design you love, and raise an enquiry — it takes less than a minute.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="/gallery" className="btn-gold px-10 py-4 text-base">
-              Explore the Gallery
-              <ArrowRight size={18} />
-            </Link>
-            <a
-              href={`https://wa.me/${businessWa}?text=${encodeURIComponent("Hello, I would like to enquire about your decoration services.")}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn-secondary px-10 py-4 text-base"
-            >
-              Chat on WhatsApp
-            </a>
+      {/* ─────────────────── REGAL BOTTOM CTA BANNER ─────────────────── */}
+      <section className="py-12 md:py-16 bg-white relative overflow-hidden" aria-labelledby="cta-heading">
+        <div className="page-container">
+          <div className="scroll-zoom relative rounded-3xl overflow-hidden bg-gradient-to-br from-[#06261E] via-[#0B4A3A] to-[#0C1A2E] border border-gold-400/35 p-8 sm:p-14 text-center text-white shadow-2xl">
+            {/* Ambient Radial Spotlight */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[250px] bg-gold-400/15 rounded-full blur-[100px] pointer-events-none" />
+
+            <div className="relative z-10 max-w-3xl mx-auto">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/10 border border-gold-400/40 text-gold-300 text-xs font-bold uppercase tracking-widest mb-4 backdrop-blur-sm">
+                <Sparkles size={13} className="text-gold-400" />
+                <span>Begin Your Journey</span>
+              </div>
+
+              <h2
+                id="cta-heading"
+                className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4 leading-tight tracking-tight"
+                style={{ fontFamily: "var(--font-playfair), serif" }}
+              >
+                Let&apos;s Create Something Truly Unforgettable
+              </h2>
+              <div className="w-16 h-1 rounded-full bg-gradient-to-r from-gold-400 to-transparent mx-auto mb-5" />
+
+              <p className="text-ivory-100/90 text-sm sm:text-base leading-relaxed mb-8 max-w-xl mx-auto">
+                Explore our stage catalogue, select your desired style, or share your custom Pinterest inspiration for an instant quotation.
+              </p>
+
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5">
+                <GatedGalleryLink
+                  href="/gallery"
+                  className="relative group overflow-hidden px-8 py-3.5 rounded-full text-xs font-bold uppercase tracking-wider text-navy-950 bg-gradient-to-r from-gold-500 via-gold-300 to-gold-500 shadow-[0_4px_18px_rgba(201,162,75,0.35)] hover:shadow-[0_6px_25px_rgba(201,162,75,0.5)] hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 w-full sm:w-auto justify-center"
+                >
+                  <span>Explore The Gallery</span>
+                  <ArrowRight size={15} className="group-hover:translate-x-1 transition-transform" />
+                  <span className="absolute inset-0 w-full h-full bg-white/25 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+                </GatedGalleryLink>
+
+                <a
+                  href={`https://wa.me/${businessWa}?text=${encodeURIComponent("Hello Sri Kubera Decor, I would like to enquire about your stage decoration services.")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full bg-emerald-600/90 hover:bg-emerald-600 border border-emerald-400/40 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-lg w-full sm:w-auto"
+                >
+                  <MessageCircle size={16} />
+                  <span>Chat on WhatsApp</span>
+                </a>
+              </div>
+            </div>
           </div>
         </div>
       </section>
-      
-      <SignupPromptModal />
     </>
   );
 }
+

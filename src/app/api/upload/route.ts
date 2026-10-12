@@ -31,10 +31,10 @@ export async function POST(request: NextRequest) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    // Convert to WebP and resize (max 1400px wide, quality 80)
+    // Convert to WebP and resize (max 1600px wide, quality 84)
     const webpBuffer = await sharp(buffer)
-      .resize({ width: 1400, withoutEnlargement: true })
-      .webp({ quality: 80 })
+      .resize({ width: 1600, withoutEnlargement: true })
+      .webp({ quality: 84 })
       .toBuffer();
 
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.webp`;
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       .from("design-images")
       .upload(filePath, webpBuffer, {
         contentType: "image/webp",
-        cacheControl: "3600",
+        cacheControl: "31536000",
         upsert: false,
       });
 

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -18,6 +18,11 @@ import {
   MapPin,
   Hash,
   ArrowLeft,
+  CheckCircle2,
+  Sparkles,
+  ShieldCheck,
+  Check,
+  AlertCircle,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
@@ -42,6 +47,9 @@ const schema = z
       .regex(/[A-Z]/, "Include at least one uppercase letter")
       .regex(/[0-9]/, "Include at least one number"),
     confirmPassword: z.string(),
+    agreeToTerms: z.boolean().refine((val) => val === true, {
+      message: "You must agree to the Terms of Service & Privacy Policy",
+    }),
   })
   .refine((d) => d.password === d.confirmPassword, {
     message: "Passwords do not match",
@@ -50,20 +58,72 @@ const schema = z
 
 type FormData = z.infer<typeof schema>;
 
-export default function SignupPage() {
+function SignupForm() {
   const [showPass, setShowPass] = useState(false);
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo =
+    searchParams.get("redirectTo") || searchParams.get("redirect") || "/enquiries";
   const supabase = createClient();
 
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
-  } = useForm<FormData>({ resolver: zodResolver(schema) });
+  } = useForm<FormData>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      agreeToTerms: false,
+    },
+  });
+
+  const watchedPassword = watch("password") || "";
+
+  // Password strength calculation
+  const passwordStrength = useMemo(() => {
+    const hasLength = watchedPassword.length >= 8;
+    const hasUpper = /[A-Z]/.test(watchedPassword);
+    const hasNumber = /[0-9]/.test(watchedPassword);
+    const hasSpecial = /[^A-Za-z0-9]/.test(watchedPassword);
+
+    const score = [hasLength, hasUpper, hasNumber, hasSpecial].filter(Boolean).length;
+    let label = "Very Weak";
+    let colorClass = "bg-red-500";
+    if (score === 2) {
+      label = "Fair";
+      colorClass = "bg-amber-500";
+    } else if (score === 3) {
+      label = "Good";
+      colorClass = "bg-gold-500";
+    } else if (score === 4) {
+      label = "Strong";
+      colorClass = "bg-emerald-600";
+    }
+
+    return {
+      score,
+      label,
+      colorClass,
+      criteria: {
+        hasLength,
+        hasUpper,
+        hasNumber,
+        hasSpecial,
+      },
+    };
+  }, [watchedPassword]);
 
   const onSubmit = async (data: FormData) => {
+    if (loading || isSuccess) return;
     setLoading(true);
+    setAuthError(null);
+
     const origin =
       typeof window !== "undefined" && window.location.origin
         ? window.location.origin
@@ -81,11 +141,12 @@ export default function SignupPage() {
           pincode: data.pincode || "",
           role: "user",
         },
-        emailRedirectTo: `${origin}/auth/callback?next=/dashboard`,
+        emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
       },
     });
 
     if (error) {
+      setAuthError(error.message);
       toast.error(error.message);
       setLoading(false);
       return;
@@ -93,309 +154,600 @@ export default function SignupPage() {
 
     // If email confirmation is disabled in Supabase, user has active session immediately
     if (authData.session) {
+      setIsSuccess(true);
       toast.success("Account created successfully! Welcome.");
-      router.push("/dashboard");
-      router.refresh();
+      setTimeout(() => {
+        router.push(redirectTo);
+        router.refresh();
+      }, 700);
       return;
     }
 
     // If user already exists, Supabase returns empty identities array
     if (authData.user && authData.user.identities && authData.user.identities.length === 0) {
-      toast.error("An account with this email already exists. Please sign in.");
-      router.push("/login");
+      const msg = "An account with this email already exists. Please sign in.";
+      setAuthError(msg);
+      toast.error(msg);
+      setLoading(false);
       return;
     }
 
-    toast.success("Account created! If confirmation is required, please check your inbox & spam folder.");
-    router.push("/login");
+    setIsSuccess(true);
+    toast.success("Account created! If confirmation is required, please check your inbox.");
+    setTimeout(() => {
+      router.push(
+        redirectTo && redirectTo !== "/enquiries"
+          ? `/login?redirectTo=${encodeURIComponent(redirectTo)}`
+          : "/login"
+      );
+    }, 700);
   };
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left: photo panel */}
-      <div className="hidden lg:flex lg:w-5/12 relative overflow-hidden">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 animate-fade-up" noValidate>
+      {authError && (
+        <div
+          role="alert"
+          className="p-3.5 rounded-xl bg-red-50 border border-red-200 flex items-center gap-2.5 text-red-700 text-xs font-medium animate-fade-up"
+        >
+          <AlertCircle size={16} className="shrink-0 text-red-600" aria-hidden="true" />
+          <span>{authError}</span>
+        </div>
+      )}
+
+      {/* Row 1: Name and Phone with staggered entrance */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 animate-fade-up delay-100">
+        {/* Name */}
+        <div>
+          <label htmlFor="signup-name" className="input-label">
+            Full Name *
+          </label>
+          <div className="relative group">
+            <div
+              className={`flex items-center gap-2.5 w-full px-3.5 py-3 rounded-xl border ${
+                errors.name ? "border-red-500" : "border-ivory-300"
+              } bg-white shadow-sm focus-within:border-gold-500 focus-within:ring-2 focus-within:ring-gold-500/20 transition-all`}
+            >
+              <User size={16} className="text-navy-400 shrink-0" aria-hidden="true" />
+              <input
+                id="signup-name"
+                type="text"
+                autoComplete="name"
+                autoCapitalize="words"
+                placeholder="Rajesh Kumar"
+                className="w-full bg-transparent border-0 outline-none text-navy-900 text-sm placeholder:text-navy-300 focus:outline-none p-0"
+                aria-invalid={errors.name ? "true" : "false"}
+                aria-describedby={errors.name ? "name-error" : undefined}
+                {...register("name")}
+              />
+            </div>
+            <div className="absolute bottom-0 left-3 right-3 h-[2px] bg-gradient-to-r from-gold-500 via-gold-300 to-gold-500 scale-x-0 group-focus-within:scale-x-100 transition-transform duration-300 ease-out origin-center rounded-full pointer-events-none" />
+          </div>
+          {errors.name && (
+            <p id="name-error" className="input-error mt-1 text-xs text-red-600">
+              {errors.name.message}
+            </p>
+          )}
+        </div>
+
+        {/* Phone */}
+        <div>
+          <label htmlFor="signup-phone" className="input-label">
+            Mobile Number *
+          </label>
+          <div className="relative group">
+            <div
+              className={`flex items-center gap-2.5 w-full px-3.5 py-3 rounded-xl border ${
+                errors.phone ? "border-red-500" : "border-ivory-300"
+              } bg-white shadow-sm focus-within:border-gold-500 focus-within:ring-2 focus-within:ring-gold-500/20 transition-all`}
+            >
+              <Phone size={16} className="text-navy-400 shrink-0" aria-hidden="true" />
+              <input
+                id="signup-phone"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                placeholder="9876543210"
+                className="w-full bg-transparent border-0 outline-none text-navy-900 text-sm placeholder:text-navy-300 focus:outline-none p-0"
+                aria-invalid={errors.phone ? "true" : "false"}
+                aria-describedby={errors.phone ? "phone-error" : undefined}
+                {...register("phone")}
+              />
+            </div>
+            <div className="absolute bottom-0 left-3 right-3 h-[2px] bg-gradient-to-r from-gold-500 via-gold-300 to-gold-500 scale-x-0 group-focus-within:scale-x-100 transition-transform duration-300 ease-out origin-center rounded-full pointer-events-none" />
+          </div>
+          {errors.phone && (
+            <p id="phone-error" className="input-error mt-1 text-xs text-red-600">
+              {errors.phone.message}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Row 2: Email and Gender with staggered entrance */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 animate-fade-up delay-200">
+        {/* Email */}
+        <div>
+          <label htmlFor="signup-email" className="input-label">
+            Email Address *
+          </label>
+          <div className="relative group">
+            <div
+              className={`flex items-center gap-2.5 w-full px-3.5 py-3 rounded-xl border ${
+                errors.email ? "border-red-500" : "border-ivory-300"
+              } bg-white shadow-sm focus-within:border-gold-500 focus-within:ring-2 focus-within:ring-gold-500/20 transition-all`}
+            >
+              <Mail size={16} className="text-navy-400 shrink-0" aria-hidden="true" />
+              <input
+                id="signup-email"
+                type="email"
+                autoComplete="email"
+                placeholder="name@example.com"
+                className="w-full bg-transparent border-0 outline-none text-navy-900 text-sm placeholder:text-navy-300 focus:outline-none p-0"
+                aria-invalid={errors.email ? "true" : "false"}
+                aria-describedby={errors.email ? "email-error" : undefined}
+                {...register("email")}
+              />
+            </div>
+            <div className="absolute bottom-0 left-3 right-3 h-[2px] bg-gradient-to-r from-gold-500 via-gold-300 to-gold-500 scale-x-0 group-focus-within:scale-x-100 transition-transform duration-300 ease-out origin-center rounded-full pointer-events-none" />
+          </div>
+          {errors.email && (
+            <p id="email-error" className="input-error mt-1 text-xs text-red-600">
+              {errors.email.message}
+            </p>
+          )}
+        </div>
+
+        {/* Gender */}
+        <div>
+          <label className="input-label">Gender *</label>
+          <div className="flex gap-2.5 pt-0.5">
+            <label
+              htmlFor="gender-male"
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-ivory-300 bg-white cursor-pointer hover:border-gold-400 has-[:checked]:border-gold-500 has-[:checked]:bg-gold-50/60 has-[:checked]:text-navy-950 transition-all shadow-sm text-xs font-semibold text-navy-700"
+            >
+              <input
+                id="gender-male"
+                type="radio"
+                value="male"
+                className="accent-[#C9A24B] cursor-pointer"
+                {...register("gender")}
+              />
+              <span>Male</span>
+            </label>
+            <label
+              htmlFor="gender-female"
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-ivory-300 bg-white cursor-pointer hover:border-gold-400 has-[:checked]:border-gold-500 has-[:checked]:bg-gold-50/60 has-[:checked]:text-navy-950 transition-all shadow-sm text-xs font-semibold text-navy-700"
+            >
+              <input
+                id="gender-female"
+                type="radio"
+                value="female"
+                className="accent-[#C9A24B] cursor-pointer"
+                {...register("gender")}
+              />
+              <span>Female</span>
+            </label>
+          </div>
+          {errors.gender && (
+            <p id="gender-error" className="input-error mt-1 text-xs text-red-600">
+              {errors.gender.message}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Row 3: Optional Address & Pincode with staggered entrance */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 animate-fade-up delay-250">
+        <div className="sm:col-span-2">
+          <label htmlFor="signup-address" className="input-label flex items-center justify-between">
+            <span>Location / Area</span>
+            <span className="text-[10px] text-navy-400 font-normal">Optional</span>
+          </label>
+          <div className="relative group">
+            <div className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl border border-ivory-300 bg-white shadow-sm focus-within:border-gold-500 focus-within:ring-2 focus-within:ring-gold-500/20 transition-all">
+              <MapPin size={15} className="text-navy-400 shrink-0" aria-hidden="true" />
+              <input
+                id="signup-address"
+                type="text"
+                autoComplete="street-address"
+                placeholder="White Town, Puducherry"
+                className="w-full bg-transparent border-0 outline-none text-navy-900 text-sm placeholder:text-navy-300 focus:outline-none p-0"
+                {...register("address")}
+              />
+            </div>
+            <div className="absolute bottom-0 left-3 right-3 h-[2px] bg-gradient-to-r from-gold-500 via-gold-300 to-gold-500 scale-x-0 group-focus-within:scale-x-100 transition-transform duration-300 ease-out origin-center rounded-full pointer-events-none" />
+          </div>
+        </div>
+
+        <div>
+          <label htmlFor="signup-pincode" className="input-label flex items-center justify-between">
+            <span>Pincode</span>
+            <span className="text-[10px] text-navy-400 font-normal">Optional</span>
+          </label>
+          <div className="relative group">
+            <div
+              className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl border ${
+                errors.pincode ? "border-red-500" : "border-ivory-300"
+              } bg-white shadow-sm focus-within:border-gold-500 focus-within:ring-2 focus-within:ring-gold-500/20 transition-all`}
+            >
+              <Hash size={15} className="text-navy-400 shrink-0" aria-hidden="true" />
+              <input
+                id="signup-pincode"
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                autoComplete="postal-code"
+                placeholder="605001"
+                className="w-full bg-transparent border-0 outline-none text-navy-900 text-sm placeholder:text-navy-300 focus:outline-none p-0"
+                aria-invalid={errors.pincode ? "true" : "false"}
+                aria-describedby={errors.pincode ? "pincode-error" : undefined}
+                {...register("pincode")}
+              />
+            </div>
+            <div className="absolute bottom-0 left-3 right-3 h-[2px] bg-gradient-to-r from-gold-500 via-gold-300 to-gold-500 scale-x-0 group-focus-within:scale-x-100 transition-transform duration-300 ease-out origin-center rounded-full pointer-events-none" />
+          </div>
+          {errors.pincode && (
+            <p id="pincode-error" className="input-error mt-1 text-xs text-red-600">
+              {errors.pincode.message}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Row 4: Passwords with staggered entrance */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 animate-fade-up delay-300">
+        {/* Password */}
+        <div>
+          <label htmlFor="signup-password" className="input-label">
+            Password *
+          </label>
+          <div className="relative group">
+            <div
+              className={`flex items-center gap-2.5 w-full px-3.5 py-3 rounded-xl border ${
+                errors.password ? "border-red-500" : "border-ivory-300"
+              } bg-white shadow-sm focus-within:border-gold-500 focus-within:ring-2 focus-within:ring-gold-500/20 transition-all`}
+            >
+              <Lock size={16} className="text-navy-400 shrink-0" aria-hidden="true" />
+              <input
+                id="signup-password"
+                type={showPass ? "text" : "password"}
+                autoComplete="new-password"
+                placeholder="At least 8 chars"
+                className="w-full bg-transparent border-0 outline-none text-navy-900 text-sm placeholder:text-navy-300 focus:outline-none p-0"
+                aria-invalid={errors.password ? "true" : "false"}
+                aria-describedby={errors.password ? "password-error" : undefined}
+                {...register("password")}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPass(!showPass)}
+                className="text-navy-400 hover:text-navy-700 transition-colors shrink-0 p-1"
+                aria-label={showPass ? "Hide password" : "Show password"}
+              >
+                {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            <div className="absolute bottom-0 left-3 right-3 h-[2px] bg-gradient-to-r from-gold-500 via-gold-300 to-gold-500 scale-x-0 group-focus-within:scale-x-100 transition-transform duration-300 ease-out origin-center rounded-full pointer-events-none" />
+          </div>
+          {errors.password && (
+            <p id="password-error" className="input-error mt-1 text-xs text-red-600">
+              {errors.password.message}
+            </p>
+          )}
+        </div>
+
+        {/* Confirm Password */}
+        <div>
+          <label htmlFor="signup-confirm" className="input-label">
+            Confirm Password *
+          </label>
+          <div className="relative group">
+            <div
+              className={`flex items-center gap-2.5 w-full px-3.5 py-3 rounded-xl border ${
+                errors.confirmPassword ? "border-red-500" : "border-ivory-300"
+              } bg-white shadow-sm focus-within:border-gold-500 focus-within:ring-2 focus-within:ring-gold-500/20 transition-all`}
+            >
+              <Lock size={16} className="text-navy-400 shrink-0" aria-hidden="true" />
+              <input
+                id="signup-confirm"
+                type={showConfirmPass ? "text" : "password"}
+                autoComplete="new-password"
+                placeholder="Re-type password"
+                className="w-full bg-transparent border-0 outline-none text-navy-900 text-sm placeholder:text-navy-300 focus:outline-none p-0"
+                aria-invalid={errors.confirmPassword ? "true" : "false"}
+                aria-describedby={errors.confirmPassword ? "confirm-password-error" : undefined}
+                {...register("confirmPassword")}
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPass(!showConfirmPass)}
+                className="text-navy-400 hover:text-navy-700 transition-colors shrink-0 p-1"
+                aria-label={showConfirmPass ? "Hide password" : "Show password"}
+              >
+                {showConfirmPass ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            <div className="absolute bottom-0 left-3 right-3 h-[2px] bg-gradient-to-r from-gold-500 via-gold-300 to-gold-500 scale-x-0 group-focus-within:scale-x-100 transition-transform duration-300 ease-out origin-center rounded-full pointer-events-none" />
+          </div>
+          {errors.confirmPassword && (
+            <p id="confirm-password-error" className="input-error mt-1 text-xs text-red-600">
+              {errors.confirmPassword.message}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Password Strength Indicator Hints */}
+      {watchedPassword.length > 0 && (
+        <div className="bg-ivory-100/90 border border-ivory-300/80 rounded-xl p-3 space-y-2 animate-fade-in text-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-navy-700">Password Strength</span>
+            <span className="text-[11px] font-bold text-navy-900">{passwordStrength.label}</span>
+          </div>
+          {/* 4-bar progress indicator */}
+          <div className="grid grid-cols-4 gap-1.5 h-1.5">
+            {[1, 2, 3, 4].map((step) => (
+              <div
+                key={step}
+                className={`rounded-full transition-colors duration-300 ${
+                  step <= passwordStrength.score ? passwordStrength.colorClass : "bg-ivory-300"
+                }`}
+              />
+            ))}
+          </div>
+          {/* Checklist Pills */}
+          <div className="flex flex-wrap gap-x-3 gap-y-1 pt-0.5 text-[10px] text-navy-600">
+            <span className={`flex items-center gap-1 ${passwordStrength.criteria.hasLength ? "text-emerald-700 font-bold" : ""}`}>
+              <Check size={11} className={passwordStrength.criteria.hasLength ? "text-emerald-600" : "text-navy-300"} />
+              8+ Characters
+            </span>
+            <span className={`flex items-center gap-1 ${passwordStrength.criteria.hasUpper ? "text-emerald-700 font-bold" : ""}`}>
+              <Check size={11} className={passwordStrength.criteria.hasUpper ? "text-emerald-600" : "text-navy-300"} />
+              1 Uppercase
+            </span>
+            <span className={`flex items-center gap-1 ${passwordStrength.criteria.hasNumber ? "text-emerald-700 font-bold" : ""}`}>
+              <Check size={11} className={passwordStrength.criteria.hasNumber ? "text-emerald-600" : "text-navy-300"} />
+              1 Number
+            </span>
+            <span className={`flex items-center gap-1 ${passwordStrength.criteria.hasSpecial ? "text-emerald-700 font-bold" : ""}`}>
+              <Check size={11} className={passwordStrength.criteria.hasSpecial ? "text-emerald-600" : "text-navy-300"} />
+              Special symbol
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Terms and Privacy Policy Consent */}
+      <div className="pt-1 animate-fade-up delay-300">
+        <label className="flex items-start gap-2.5 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            id="signup-agree-terms"
+            {...register("agreeToTerms")}
+            className="mt-1 h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500 accent-gold-600 transition-colors"
+          />
+          <span className="text-xs text-navy-600 leading-relaxed">
+            I agree to the{" "}
+            <Link
+              href="/privacy"
+              target="_blank"
+              className="text-gold-700 font-semibold underline underline-offset-2 hover:text-gold-800"
+            >
+              Terms of Service &amp; Privacy Policy
+            </Link>{" "}
+            and consent to receive event communications.
+          </span>
+        </label>
+        {errors.agreeToTerms && (
+          <p id="terms-error" className="input-error mt-1 text-xs text-red-600 flex items-center gap-1">
+            <AlertCircle size={12} />
+            {errors.agreeToTerms.message}
+          </p>
+        )}
+      </div>
+
+      {/* Submit Button with Loading & Success Animation */}
+      <div className="pt-2 animate-fade-up delay-350">
+        <button
+          type="submit"
+          disabled={loading || isSuccess}
+          className={`btn-primary w-full py-4 text-base font-bold justify-center rounded-xl shadow-md transition-all duration-300 ${
+            isSuccess ? "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-600" : ""
+          }`}
+        >
+          {isSuccess ? (
+            <div className="flex items-center gap-2 animate-pop-success">
+              <CheckCircle2 size={20} className="text-white" />
+              <span>Account created! Redirecting...</span>
+            </div>
+          ) : loading ? (
+            <div className="flex items-center gap-2">
+              <Loader2 size={18} className="animate-spin" aria-hidden="true" />
+              <span>Creating your account...</span>
+            </div>
+          ) : (
+            <span>Create Account</span>
+          )}
+        </button>
+      </div>
+
+      {/* Link to Login */}
+      <p className="text-center text-sm text-navy-500 pt-1 animate-fade-up delay-400">
+        Already have an account?{" "}
+        <Link
+          href={
+            redirectTo && redirectTo !== "/enquiries"
+              ? `/login?redirectTo=${encodeURIComponent(redirectTo)}`
+              : "/login"
+          }
+          className="text-gold-700 font-bold hover:underline underline-offset-4"
+        >
+          Sign in
+        </Link>
+      </p>
+    </form>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <div className="min-h-[calc(100vh-4rem)] flex flex-col lg:flex-row bg-ivory-100">
+      {/* ── MOBILE COMPACT BANNER (visible on mobile/tablet) ── */}
+      <div className="lg:hidden relative h-48 sm:h-56 w-full overflow-hidden shrink-0 bg-navy-950">
         <Image
           src="/assets/marriage-02.jpeg"
-          alt="Beautiful event decoration by Sri Kubera Decor & Events"
+          alt="Royal Celebration Stage Décor"
           fill
           priority
-          sizes="42vw"
-          className="object-cover"
+          sizes="100vw"
+          className="object-cover opacity-45 animate-ken-burns"
         />
-        <div className="absolute inset-0 bg-gradient-to-br from-navy-950/80 to-navy-900/60" />
-        <div className="absolute inset-0 flex flex-col justify-end p-12">
-          <p className="section-label text-gold-400 mb-3">Join Sri Kubera</p>
-          <h2
-            className="text-3xl font-bold text-white leading-tight mb-4"
+        <div className="absolute inset-0 bg-gradient-to-b from-navy-950/70 via-navy-950/60 to-ivory-100" />
+        <div className="absolute inset-0 flex flex-col justify-center items-center text-center p-6 z-10">
+          <Link href="/" className="inline-block mb-2">
+            <div className="relative w-11 h-11 rounded-full overflow-hidden mx-auto border-2 border-[#C9A24B]/70 shadow-md">
+              <Image
+                src="/assets/logo.jpeg"
+                alt="Sri Kubera Decor & Events Logo"
+                fill
+                sizes="44px"
+                className="object-cover"
+                priority
+              />
+            </div>
+          </Link>
+          <h1
+            className="text-2xl font-bold text-white tracking-wide"
             style={{ fontFamily: "var(--font-display)" }}
           >
-            Your Dream Event<br />
-            <span className="text-gradient-gold">Starts Here</span>
-          </h2>
-          <p className="text-ivory-300 text-sm leading-relaxed max-w-xs">
-            Create a free account to browse designs, raise enquiries, and track your bookings.
+            Create Your Account
+          </h1>
+          <p className="text-ivory-200 text-xs mt-0.5">
+            Join Sri Kubera for full stage collections &amp; seamless event planning
           </p>
         </div>
       </div>
 
-      {/* Right: form panel */}
-      <div className="flex-1 flex items-center justify-center px-6 py-12 bg-ivory-50 overflow-y-auto">
-        <div className="w-full max-w-lg">
-          {/* Back */}
+      {/* ── DESKTOP LEFT PANEL (Full Height with subtle Ken Burns) ── */}
+      <div className="hidden lg:flex lg:w-5/12 relative overflow-hidden bg-navy-950">
+        <Image
+          src="/assets/marriage-02.jpeg"
+          alt="Grand Celebration Stage by Sri Kubera"
+          fill
+          priority
+          sizes="42vw"
+          className="object-cover opacity-55 animate-ken-burns"
+        />
+        {/* Luxury Navy & Emerald Gradient Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-br from-navy-950/90 via-navy-900/80 to-emerald-950/85" />
+
+        {/* Ambient radial glow */}
+        <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-gold-500/15 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-emerald-500/15 blur-3xl pointer-events-none" />
+
+        {/* Content Overlay */}
+        <div className="relative z-10 w-full h-full flex flex-col justify-between p-12 lg:p-14 text-white">
+          {/* Top Brand Tag */}
+          <div className="flex items-center gap-3">
+            <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-gold-400/60 shadow-lg shrink-0">
+              <Image
+                src="/assets/logo.jpeg"
+                alt="Sri Kubera Decor Logo"
+                fill
+                sizes="48px"
+                className="object-cover"
+                priority
+              />
+            </div>
+            <div>
+              <p
+                className="font-bold text-white text-lg tracking-wider"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                Sri Kubera
+              </p>
+              <p className="text-[11px] text-gold-400 font-semibold tracking-[0.2em] uppercase">
+                Decor &amp; Events
+              </p>
+            </div>
+          </div>
+
+          {/* Central Welcome Statement */}
+          <div className="max-w-md space-y-4 my-auto">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gold-500/15 border border-gold-400/30 text-gold-300 text-xs font-semibold">
+              <Sparkles size={13} className="text-gold-400" />
+              <span>Complimentary Membership</span>
+            </div>
+            <h2
+              className="text-4xl xl:text-5xl font-bold text-white leading-tight"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
+              Create Memories<br />
+              <span className="text-gradient-gold">That Last Forever</span>
+            </h2>
+            <div className="w-16 h-1 bg-gradient-to-r from-gold-500 to-transparent rounded-full" />
+            <p className="text-ivory-200 text-sm leading-relaxed">
+              Register in under 60 seconds to unlock our complete 35+ stage catalog, transparent pricing, and instant enquiry tracking.
+            </p>
+          </div>
+
+          {/* Trust Highlights */}
+          <div className="grid grid-cols-2 gap-4 pt-6 border-t border-white/10 text-xs">
+            <div className="flex items-center gap-2.5">
+              <ShieldCheck size={18} className="text-gold-400 shrink-0" />
+              <span className="text-ivory-200">Zero Obligation Quote</span>
+            </div>
+            <div className="flex items-center gap-2.5">
+              <Sparkles size={18} className="text-gold-400 shrink-0" />
+              <span className="text-ivory-200">Exclusive Member Themes</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── RIGHT PANEL (Form Card) ── */}
+      <div className="flex-1 flex items-center justify-center px-4 sm:px-8 py-10 sm:py-14 -mt-6 sm:-mt-8 lg:mt-0 relative z-10">
+        <div className="w-full max-w-xl">
+          {/* Back Link */}
           <Link
             href="/"
-            className="inline-flex items-center gap-2 text-navy-500 hover:text-navy-800 text-sm mb-8 transition-colors"
+            className="inline-flex items-center gap-2 text-navy-500 hover:text-navy-900 text-sm mb-6 transition-colors font-medium group"
           >
-            <ArrowLeft size={15} />
+            <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
             Back to home
           </Link>
 
-          {/* Brand */}
-          <div className="mb-8">
-            <Link href="/" className="inline-block mb-5">
-              <div className="flex items-center gap-3">
-                <div className="relative w-10 h-10 rounded-full overflow-hidden shrink-0 border border-[#C9A24B]/50 shadow-sm">
-                  <Image
-                    src="/assets/logo.jpeg"
-                    alt="Sri Kubera Decor & Events Logo"
-                    fill
-                    sizes="40px"
-                    className="object-cover"
-                    priority
-                  />
-                </div>
-                <div>
-                  <p className="font-bold text-navy-900 leading-none" style={{ fontFamily: "var(--font-display)" }}>
-                    Sri Kubera
-                  </p>
-                  <p className="text-[10px] text-gold-600 font-semibold tracking-[0.18em] uppercase mt-0.5">
-                    Decor &amp; Events
-                  </p>
-                </div>
-              </div>
-            </Link>
+          {/* Desktop Brand Header */}
+          <div className="hidden lg:block mb-7">
             <h1
-              className="text-3xl font-bold text-navy-900 mb-1.5"
+              className="text-3xl font-bold text-navy-950 mb-1.5"
               style={{ fontFamily: "var(--font-display)" }}
             >
               Create your account
             </h1>
             <p className="text-navy-500 text-sm">
-              Free to register. Browse designs and raise enquiries instantly.
+              Free to register. Browse complete design collections and track your event requirements.
             </p>
           </div>
 
-          {/* Form */}
-          <div className="card p-8">
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Name */}
-                <div>
-                  <label htmlFor="signup-name" className="input-label">Full Name</label>
-                  <div
-                    className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-lg border ${
-                      errors.name ? "border-red-500" : "border-ivory-400"
-                    } bg-white focus-within:ring-2 focus-within:ring-gold-500 focus-within:border-transparent transition-all shadow-sm`}
-                  >
-                    <User size={16} className="text-navy-400 shrink-0" aria-hidden="true" />
-                    <input
-                      id="signup-name"
-                      type="text"
-                      placeholder="Your full name"
-                      className="w-full bg-transparent border-0 outline-none text-navy-900 text-sm placeholder:text-navy-300 focus:outline-none p-0"
-                      aria-invalid={errors.name ? "true" : "false"}
-                      aria-describedby={errors.name ? "su-name-err" : undefined}
-                      {...register("name")}
-                    />
-                  </div>
-                  {errors.name && <p id="su-name-err" className="input-error">{errors.name.message}</p>}
+          {/* Form Card (Ivory/Glass styling) */}
+          <div className="bg-white/95 backdrop-blur-md rounded-3xl p-7 sm:p-9 shadow-xl border border-ivory-300 relative overflow-hidden">
+            {/* Top Gold Accent Bar */}
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-gold-500 via-gold-300 to-gold-500" />
+
+            <Suspense
+              fallback={
+                <div className="space-y-4 animate-pulse py-4">
+                  <div className="h-10 bg-ivory-200 rounded-xl" />
+                  <div className="h-10 bg-ivory-200 rounded-xl" />
+                  <div className="h-10 bg-ivory-200 rounded-xl" />
+                  <div className="h-12 bg-gold-200/50 rounded-xl mt-6" />
                 </div>
-
-                {/* Phone */}
-                <div>
-                  <label htmlFor="signup-phone" className="input-label">Phone Number</label>
-                  <div
-                    className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-lg border ${
-                      errors.phone ? "border-red-500" : "border-ivory-400"
-                    } bg-white focus-within:ring-2 focus-within:ring-gold-500 focus-within:border-transparent transition-all shadow-sm`}
-                  >
-                    <Phone size={16} className="text-navy-400 shrink-0" aria-hidden="true" />
-                    <input
-                      id="signup-phone"
-                      type="tel"
-                      placeholder="9876543210"
-                      className="w-full bg-transparent border-0 outline-none text-navy-900 text-sm placeholder:text-navy-300 focus:outline-none p-0"
-                      aria-invalid={errors.phone ? "true" : "false"}
-                      aria-describedby={errors.phone ? "su-phone-err" : undefined}
-                      {...register("phone")}
-                    />
-                  </div>
-                  {errors.phone && <p id="su-phone-err" className="input-error">{errors.phone.message}</p>}
-                </div>
-              </div>
-
-              {/* Email */}
-              <div>
-                <label htmlFor="signup-email" className="input-label">Email Address</label>
-                <div
-                  className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-lg border ${
-                    errors.email ? "border-red-500" : "border-ivory-400"
-                  } bg-white focus-within:ring-2 focus-within:ring-gold-500 focus-within:border-transparent transition-all shadow-sm`}
-                >
-                  <Mail size={16} className="text-navy-400 shrink-0" aria-hidden="true" />
-                  <input
-                    id="signup-email"
-                    type="email"
-                    placeholder="example@gmail.com"
-                    className="w-full bg-transparent border-0 outline-none text-navy-900 text-sm placeholder:text-navy-300 focus:outline-none p-0"
-                    aria-invalid={errors.email ? "true" : "false"}
-                    aria-describedby={errors.email ? "su-email-err" : undefined}
-                    {...register("email")}
-                  />
-                </div>
-                {errors.email && <p id="su-email-err" className="input-error">{errors.email.message}</p>}
-              </div>
-
-              {/* Gender */}
-              <div>
-                <label className="input-label">Gender</label>
-                <div className="flex gap-5 mt-1">
-                  {(["male", "female"] as const).map((g) => (
-                    <label key={g} className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        value={g}
-                        {...register("gender")}
-                        className="accent-gold-500 w-4 h-4"
-                        id={`gender-${g}`}
-                        aria-describedby={errors.gender ? "su-gender-err" : undefined}
-                      />
-                      <span className="text-sm text-navy-700 capitalize">{g}</span>
-                    </label>
-                  ))}
-                </div>
-                {errors.gender && <p id="su-gender-err" className="input-error">{errors.gender.message}</p>}
-              </div>
-
-              {/* Address */}
-              <div>
-                <label htmlFor="signup-address" className="input-label">
-                  Address <span className="text-navy-400 font-normal">(optional)</span>
-                </label>
-                <div className="flex items-start gap-2.5 w-full px-3.5 py-2.5 rounded-lg border border-ivory-400 bg-white focus-within:ring-2 focus-within:ring-gold-500 focus-within:border-transparent transition-all shadow-sm">
-                  <MapPin size={16} className="text-navy-400 shrink-0 mt-0.5" aria-hidden="true" />
-                  <textarea
-                    id="signup-address"
-                    rows={2}
-                    placeholder="Your full address in Puducherry"
-                    className="w-full bg-transparent border-0 outline-none text-navy-900 text-sm placeholder:text-navy-300 focus:outline-none p-0 resize-none"
-                    {...register("address")}
-                  />
-                </div>
-              </div>
-
-              {/* Pincode */}
-              <div>
-                <label htmlFor="signup-pincode" className="input-label">
-                  Pincode <span className="text-navy-400 font-normal">(optional)</span>
-                </label>
-                <div
-                  className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-lg border ${
-                    errors.pincode ? "border-red-500" : "border-ivory-400"
-                  } bg-white focus-within:ring-2 focus-within:ring-gold-500 focus-within:border-transparent transition-all shadow-sm`}
-                >
-                  <Hash size={16} className="text-navy-400 shrink-0" aria-hidden="true" />
-                  <input
-                    id="signup-pincode"
-                    type="text"
-                    maxLength={6}
-                    placeholder="605001"
-                    className="w-full bg-transparent border-0 outline-none text-navy-900 text-sm placeholder:text-navy-300 focus:outline-none p-0"
-                    aria-invalid={errors.pincode ? "true" : "false"}
-                    aria-describedby={errors.pincode ? "su-pincode-err" : undefined}
-                    {...register("pincode")}
-                  />
-                </div>
-                {errors.pincode && <p id="su-pincode-err" className="input-error">{errors.pincode.message}</p>}
-              </div>
-
-              {/* Password pair */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="signup-password" className="input-label">Password</label>
-                  <div
-                    className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-lg border ${
-                      errors.password ? "border-red-500" : "border-ivory-400"
-                    } bg-white focus-within:ring-2 focus-within:ring-gold-500 focus-within:border-transparent transition-all shadow-sm`}
-                  >
-                    <Lock size={16} className="text-navy-400 shrink-0" aria-hidden="true" />
-                    <input
-                      id="signup-password"
-                      type={showPass ? "text" : "password"}
-                      placeholder="Min 8 chars"
-                      className="w-full bg-transparent border-0 outline-none text-navy-900 text-sm placeholder:text-navy-300 focus:outline-none p-0"
-                      aria-invalid={errors.password ? "true" : "false"}
-                      aria-describedby={errors.password ? "su-pw-err" : undefined}
-                      {...register("password")}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPass(!showPass)}
-                      className="text-navy-400 hover:text-navy-700 transition-colors shrink-0 p-1"
-                      aria-label={showPass ? "Hide password" : "Show password"}
-                    >
-                      {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
-                  {errors.password && <p id="su-pw-err" className="input-error">{errors.password.message}</p>}
-                </div>
-
-                <div>
-                  <label htmlFor="signup-confirm" className="input-label">Confirm Password</label>
-                  <div
-                    className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-lg border ${
-                      errors.confirmPassword ? "border-red-500" : "border-ivory-400"
-                    } bg-white focus-within:ring-2 focus-within:ring-gold-500 focus-within:border-transparent transition-all shadow-sm`}
-                  >
-                    <Lock size={16} className="text-navy-400 shrink-0" aria-hidden="true" />
-                    <input
-                      id="signup-confirm"
-                      type={showPass ? "text" : "password"}
-                      placeholder="Repeat password"
-                      className="w-full bg-transparent border-0 outline-none text-navy-900 text-sm placeholder:text-navy-300 focus:outline-none p-0"
-                      aria-invalid={errors.confirmPassword ? "true" : "false"}
-                      aria-describedby={errors.confirmPassword ? "su-confirm-err" : undefined}
-                      {...register("confirmPassword")}
-                    />
-                  </div>
-                  {errors.confirmPassword && (
-                    <p id="su-confirm-err" className="input-error">{errors.confirmPassword.message}</p>
-                  )}
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn-primary w-full py-4 text-base justify-center mt-2"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 size={18} className="animate-spin" aria-hidden="true" />
-                    Creating account...
-                  </>
-                ) : (
-                  "Create Account"
-                )}
-              </button>
-            </form>
-
-            <p className="text-center text-sm text-navy-500 mt-6">
-              Already have an account?{" "}
-              <Link href="/login" className="text-gold-600 font-semibold hover:underline">
-                Sign in
-              </Link>
-            </p>
+              }
+            >
+              <SignupForm />
+            </Suspense>
           </div>
         </div>
       </div>

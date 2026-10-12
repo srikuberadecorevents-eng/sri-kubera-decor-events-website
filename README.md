@@ -8,7 +8,7 @@ Production-ready web application and complete, responsive administrative panel f
 
 | Layer | Technology |
 |---|---|
-| Frontend | Next.js 16 (App Router, Turbopack, TypeScript) |
+| Frontend | Next.js 16 (App Router, Turbopack, React 19, TypeScript) |
 | Styling | Tailwind CSS v4 (Emerald `#0B4A3A`, Gold `#C9A24B`, Warm Ivory `#FAF6EC`) |
 | Admin UI | Responsive Shell, Desktop Sidebar, Mobile Bottom Bar (< 768px), Drag-and-Drop (`@dnd-kit`) |
 | Image Pipeline | `browser-image-compression` (client resize) + Sharp (server magic bytes, EXIF strip, dual WebP variants) |
@@ -20,228 +20,277 @@ Production-ready web application and complete, responsive administrative panel f
 
 ---
 
-## 2. Setting Up Supabase & Running Database Migrations
+## 2. Project Folder Structure
 
-1. Go to your [Supabase Dashboard](https://supabase.com).
-2. Open the **SQL Editor**.
-3. In sequence, run:
-   - `supabase/migrations/001_initial_schema.sql` (if starting on a fresh database)
-   - `supabase/migrations/002_rls_security_audit.sql`
-   - `supabase/migrations/003_admin_schema_and_rls.sql` (**Critical for Admin Panel**)
-
-### What `003_admin_schema_and_rls.sql` creates:
-- `is_admin()` helper function with `security definer`.
-- Schema alterations for `categories`, `designs`, `bookings`, `services`, and `business_settings`.
-- Dedicated tables:
-  - `media`: Central photo library tracking dual WebP variants (`path_card`, `path_full`, dimensions, bytes).
-  - `design_images`: Many-to-many relationship between designs and media photos with sort orders and cover flags.
-  - `booking_private`: Column-level privacy holding internal notes and quoted prices visible strictly to admin.
-  - `booking_status_history`: Complete audit trail of customer booking status transitions.
-  - `requirements`: Leads captured from the public "Post Your Requirement" form.
-  - `testimonials`: Genuine customer reviews with star ratings and publish toggles.
-  - `site_content`: Dynamic key-value store for hero slides, proprietor info, real stats, and announcement banners.
-  - `activity_log`: Read-only chronological audit log of admin mutations.
-- Strict Row Level Security (RLS) policies on every table.
-- High-performance indexes for status and dates.
-- Realtime publication on `bookings` and `requirements` for live badge counters in the navigation.
-
----
-
-## 3. Creating and Promoting the Admin Account
-
-The admin panel is completely protected. There is no public registration for admin accounts.
-
-### Step 1: Create the User in Supabase
-In Supabase Dashboard, navigate to **Authentication -> Users** and click **Add User** (Create User with Email & Password).
-
-### Step 2: Promote User to Admin via SQL
-Run the following SQL statement in the Supabase SQL Editor (replace with the user's email):
-
-```sql
--- Promote user to admin role
-UPDATE public.profiles
-SET role = 'admin'
-WHERE email = 'saravanan@srikuberadecor.com';
-
--- Verify the admin status
-SELECT id, email, role, full_name
-FROM public.profiles
-WHERE role = 'admin';
+```
+kubera-decor/
+├── .github/
+│   └── workflows/
+│       └── ci-cd.yml                # Automated CI/CD pipeline (lint, typecheck, build, deploy)
+├── public/                          # Static assets, hero images, icons
+├── scripts/
+│   ├── optimize-images.mjs          # Script to compress and generate WebP image variants
+│   └── qa-runner.js                 # Playwright automated QA verification script
+├── src/
+│   ├── app/                         # App Router (routes, layouts, templates, and handlers only)
+│   │   ├── actions/                 # Server actions (e.g. revalidate.ts)
+│   │   ├── admin/                   # Admin panel routes
+│   │   │   ├── 403/                 # Forbidden access page
+│   │   │   ├── activity/            # Administrative activity log
+│   │   │   ├── calendar/            # Event calendar and date clash views
+│   │   │   ├── categories/          # Category management
+│   │   │   ├── customers/           # Customer directory and history
+│   │   │   ├── designs/             # Design catalog management
+│   │   │   ├── enquiries/           # Booking enquiry pipeline
+│   │   │   ├── gallery/             # Photo gallery manager
+│   │   │   ├── login/               # Dedicated admin login
+│   │   │   ├── media/               # Centralized media library
+│   │   │   ├── requirements/        # Custom lead management
+│   │   │   ├── services/            # Service catalog manager
+│   │   │   ├── settings/            # Business & account settings
+│   │   │   ├── site-content/        # Hero slides, proprietor info, stats
+│   │   │   ├── testimonials/        # Customer review management
+│   │   │   ├── users/               # User permissions
+│   │   │   ├── layout.tsx           # Admin shell wrapper with auth check
+│   │   │   └── page.tsx             # Admin dashboard with KPIs
+│   │   ├── api/                     # Route handlers
+│   │   │   ├── admin/upload/        # Secure server-side image upload handler
+│   │   │   ├── enquiry/             # Customer enquiry submission endpoint
+│   │   │   ├── receipt/[id]/        # PDF receipt generator endpoint
+│   │   │   ├── requirements/        # Post requirement lead endpoint
+│   │   │   └── upload/              # Public upload endpoint
+│   │   ├── auth/callback/           # Supabase OAuth and auth callback handler
+│   │   ├── about/                   # About Us page
+│   │   ├── contact/                 # Contact Us page
+│   │   ├── dashboard/               # Customer dashboard
+│   │   ├── enquiries/               # Customer enquiry lookup & tracker
+│   │   ├── gallery/                 # Public portfolio & design showcase
+│   │   ├── login/                   # Customer login page
+│   │   ├── profile/                 # Customer profile page
+│   │   ├── services/                # Services overview page
+│   │   ├── signup/                  # Customer registration page
+│   │   ├── error.tsx                # Route-level error boundary
+│   │   ├── global-error.tsx         # Root error boundary
+│   │   ├── globals.css              # Global styles and design system variables
+│   │   ├── layout.tsx               # Root layout with header, footer, providers
+│   │   ├── loading.tsx              # Root loading state
+│   │   ├── not-found.tsx            # Custom 404 page
+│   │   ├── page.tsx                 # Public homepage
+│   │   └── template.tsx             # Page entrance transition wrapper
+│   ├── components/                  # Modular React UI components
+│   │   ├── admin/                   # Administrative interface components
+│   │   │   ├── AdminLayoutShell.tsx
+│   │   │   ├── ConfirmDialog.tsx
+│   │   │   ├── DesignForm.tsx
+│   │   │   ├── Drawer.tsx
+│   │   │   ├── EmptyState.tsx
+│   │   │   ├── EnquiryDetailClient.tsx
+│   │   │   ├── EnquiryStatusForm.tsx
+│   │   │   ├── FormField.tsx
+│   │   │   ├── Modal.tsx
+│   │   │   ├── RealtimeBadgesProvider.tsx
+│   │   │   └── Skeleton.tsx
+│   │   ├── layout/                  # Persistent layout components
+│   │   │   ├── Footer.tsx
+│   │   │   ├── Header.tsx
+│   │   │   └── WhatsAppButton.tsx
+│   │   ├── providers/               # Context and state providers
+│   │   │   └── PageTransitionProvider.tsx
+│   │   ├── sections/                # Full-page feature sections and interactive page clients
+│   │   │   ├── ContactClient.tsx
+│   │   │   ├── DynamicPostRequirement.tsx
+│   │   │   ├── EnquiriesClient.tsx
+│   │   │   ├── HeroSlideshow.tsx
+│   │   │   └── PostRequirementSection.tsx
+│   │   └── ui/                      # Reusable atom/molecule UI components
+│   │       ├── CopyButton.tsx
+│   │       ├── DesignCard.tsx
+│   │       ├── DynamicSignupPromptModal.tsx
+│   │       ├── GalleryEnquireButton.tsx
+│   │       ├── HeroCounter.tsx
+│   │       ├── ImageLightboxModal.tsx
+│   │       ├── OccasionCard.tsx
+│   │       ├── ResponsiveImage.tsx
+│   │       ├── SignupPromptModal.tsx
+│   │       └── StatusBadge.tsx
+│   ├── data/                        # Static datasets and manifest fallbacks
+│   │   ├── imageManifest.json
+│   │   ├── imageManifest.ts
+│   │   └── initialDesigns.ts
+│   ├── lib/                         # Utility libraries and services
+│   │   ├── supabase/
+│   │   │   ├── client.ts            # Supabase browser client
+│   │   │   └── server.ts            # Supabase server client with cookies
+│   │   ├── admin.ts                 # Admin verification utilities
+│   │   ├── clientImageUpload.ts     # Client-side image compression utility
+│   │   └── notifications.ts         # Resend notification dispatch utility
+│   ├── types/                       # Shared TypeScript definitions
+│   │   └── index.ts
+│   └── proxy.ts                     # Next.js 16 network proxy and session watcher
+├── supabase/
+│   └── migrations/                  # Version-controlled database migrations
+│       ├── 001_initial_schema.sql
+│       ├── 002_rls_security_audit.sql
+│       └── 003_admin_schema_and_rls.sql
+├── netlify.toml                     # Netlify build and redirect configuration
+├── package.json                     # Project manifest and npm scripts
+└── tsconfig.json                    # TypeScript compiler options and @/* aliases
 ```
 
-Once promoted, the user can navigate to `/admin/login` and access the full administration system. Non-admin users attempting to access `/admin/*` are automatically blocked and redirected to the `/admin/403` forbidden page.
+---
+
+## 3. Environment Variables
+
+Create a `.env.local` file in the project root with the following variables:
+
+| Variable | Required | Description | Example / Default |
+|---|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase Project URL | `https://xyzcompany.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase Public Anonymous Key | `eyJhbGciOi...` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Supabase Service Role Key (Server only, bypasses RLS for admin operations) | `eyJhbGciOi...` |
+| `RESEND_API_KEY` | Optional | Resend API Key for dispatching email notifications | `re_1234567890abcdef` |
+| `RESEND_FROM` | Optional | Sender identity for transactional emails | `Sri Kubera Decor <notifications@srikuberadecor.com>` |
+| `RESEND_FROM_EMAIL` | Optional | Sender email address verified in Resend | `notifications@srikuberadecor.com` |
+| `NOTIFY_EMAIL` | Optional | Target admin inbox for incoming enquiries | `saravanan@srikuberadecorevents.in` |
+| `NEXT_PUBLIC_APP_URL` | Optional | Base URL of the application | `http://localhost:3000` (dev) / `https://srikuberadecorevents.in` (prod) |
+| `NEXT_PUBLIC_BUSINESS_WHATSAPP` | Optional | WhatsApp contact number with country code | `917373876879` |
+| `NEXT_PUBLIC_BUSINESS_PHONE` | Optional | Primary business phone number | `7373876879` |
+| `NEXT_PUBLIC_BUSINESS_PHONE_2` | Optional | Secondary business phone number | `9486064769` |
+
+> Note: Never commit `.env.local` or any file containing secret keys to version control.
 
 ---
 
-## 4. How the Image Pipeline Works (Serverless & Phone-Friendly)
+## 4. Setup and Installation
 
-Netlify Serverless functions enforce a strict request body payload limit (~6 MB). To prevent mobile uploads from failing or timing out:
+### Prerequisites
+- Node.js 20 or higher
+- npm 10 or higher
+- Supabase account with an active project
+
+### Step 1: Clone and Install
+```bash
+git clone https://github.com/your-username/kubera-decor.git
+cd kubera-decor
+npm install
+```
+
+### Step 2: Configure Environment Variables
+Copy or create `.env.local`:
+```bash
+cp .env.example .env.local
+```
+Fill in your Supabase URL, anon key, service role key, and notification credentials.
+
+### Step 3: Run Database Migrations
+1. Open the [Supabase Dashboard](https://supabase.com).
+2. Go to the **SQL Editor**.
+3. In sequence, execute the migration files found in `supabase/migrations/`:
+   - `001_initial_schema.sql` (Tables, profiles, bookings, categories, designs)
+   - `002_seed_designs.sql` (Initial stage designs catalog seed)
+   - `003_admin_schema_and_rls.sql` (Admin dashboard tables, media library, activity log, RLS anti-escalation)
+   - `004_replace_birthday_designs.sql` (Updated birthday celebration catalog)
+   - `005_restructure_categories.sql` (Refined category hierarchy)
+   - `006_requirement_prompt_dismissed.sql` (Lead tracking and prompt dismissal column)
+   - `007_gate_designs_rls.sql` (RLS policy restricting design queries)
+   - `008_whatsapp_enquiries.sql` (WhatsApp enquiry tracking schema)
+   - `009_fix_customer_profiles_and_enquiries.sql` (Customer profile trigger, backfill & RLS fix)
+
+### Step 4: Storage Bucket Setup
+1. In Supabase Dashboard, navigate to **Storage**.
+2. Ensure a public bucket named `design-images` exists.
+3. Configure bucket policies to allow authenticated admin uploads and public read access.
+
+### Step 5: Admin User Creation
+1. Go to **Authentication > Users** in Supabase and create a user (e.g., `admin@gmail.com`).
+2. In the **SQL Editor**, grant the administrator role:
+   ```sql
+   -- Promote existing profile:
+   UPDATE public.profiles
+   SET role = 'admin'
+   WHERE id IN (
+     SELECT id FROM auth.users WHERE email = 'admin@gmail.com'
+   );
+
+   -- Idempotent upsert (if profile does not exist yet):
+   INSERT INTO public.profiles (id, name, email, phone, role)
+   SELECT 
+     id,
+     COALESCE(raw_user_meta_data->>'name', 'System Admin'),
+     email,
+     COALESCE(raw_user_meta_data->>'phone', '917373876879'),
+     'admin'
+   FROM auth.users
+   WHERE email = 'admin@gmail.com'
+   ON CONFLICT (id) DO UPDATE
+   SET role = 'admin';
+   ```
+3. Verify admin access by signing in at `/admin/login`.
+
+---
+
+## 5. Available Scripts & How to Run
+
+| Command | Description |
+|---|---|
+| `npm run dev` | Starts the Next.js development server with Turbopack at `http://localhost:3000` |
+| `npm run build` | Builds the production bundle and validates static page generation |
+| `npm run start` | Serves the production build locally |
+| `npm run lint` | Runs ESLint to check for code quality and convention issues |
+| `npm run typecheck` | Runs `tsc --noEmit` to verify TypeScript types without emitting files |
+| `npm run optimize-images` | Runs the automated script to generate responsive WebP variants for local photos |
+| `npm run qa` | Runs the automated Playwright test suite against key routes |
+
+---
+
+## 6. How to Deploy
+
+### Option A: Netlify (Recommended)
+
+1. **Link Repository**:
+   - In Netlify, click **Add new site > Import an existing project**.
+   - Select your Git repository.
+2. **Build Configuration**:
+   - Build command: `npm run build`
+   - Publish directory: `.next`
+   - Next.js Runtime: Netlify Next.js Plugin (`@netlify/plugin-nextjs`) is automatically detected.
+3. **Set Environment Variables**:
+   - In Netlify under **Site configuration > Environment variables**, add all variables specified in Section 3.
+4. **Deploy**:
+   - Trigger a manual deployment or push to the `main` branch.
+
+### Option B: GitHub Actions Automated CI/CD
+
+The repository includes a ready-to-run GitHub Actions workflow in `.github/workflows/ci-cd.yml`:
+1. Add `NETLIFY_AUTH_TOKEN` and `NETLIFY_SITE_ID` to GitHub Repository Secrets (**Settings > Secrets and variables > Actions**).
+2. Add public variables (`NEXT_PUBLIC_*`) to GitHub Repository Variables.
+3. On every push to `main`, the workflow will:
+   - Install dependencies cleanly (`npm ci`)
+   - Check code quality (`npm run lint`)
+   - Verify TypeScript integrity (`npm run typecheck`)
+   - Execute production build (`npm run build`)
+   - Deploy directly to Netlify production upon green checks.
+
+---
+
+## 7. Image Pipeline & Optimization
 
 1. **Client-Side Compression (`browser-image-compression`)**:
-   - When the business owner selects large camera photos (e.g. 5 MB to 15 MB) from a phone, `clientImageUpload.ts` compresses and resizes them in the browser.
-   - Longest edge is capped at 1920 px, targeting ~1.5 MB per file.
-   - Files are uploaded one by one with a real-time progress bar.
-2. **Server Security & Magic Bytes Verification (`/api/admin/upload`)**:
-   - The route handler verifies that the calling user has `role = 'admin'` using Supabase Auth.
-   - Verifies real file magic bytes (JPEG `FF D8 FF`, PNG `89 50 4E`, WebP `RIFF...WEBP`). Rejects spoofed extensions.
-   - Max serverless body limit guarded at 6 MB.
-3. **Sharp Processing (Dual WebP Generation & Privacy Stripping)**:
-   - Sharp rotates images according to EXIF orientation.
-   - Completely strips all metadata (including GPS coordinates, camera model, and device info).
-   - Generates two WebP files:
-     - **Card variant**: 800 px wide, 78% quality (used in admin lists, public grids, occasion tiles).
-     - **Full variant**: 1600 px wide, 80% quality (used in design detail view and lightboxes).
-4. **Storage & Media Library**:
-   - Stored in the `design-images` public bucket.
-   - A row is inserted into the `media` table tracking file paths, dimensions, and total byte size.
+   - Large camera photos (up to 15 MB) are pre-compressed directly in the browser to under 1.5 MB before upload.
+2. **Server Security (`/api/admin/upload`)**:
+   - Validates user admin role and verifies binary magic bytes for JPEG, PNG, and WebP.
+   - Enforces 6 MB body limit to comply with serverless function constraints.
+3. **Sharp Processing**:
+   - Strips EXIF metadata (GPS, camera tags) for client privacy.
+   - Generates two WebP variants:
+     - **Card variant**: 800 px wide, 78% quality (lists, catalog cards).
+     - **Full variant**: 1600 px wide, 80% quality (modal lightboxes, zoom views).
 
 ---
 
-## 5. Resend Email Notifications Setup
+## 8. Quality Assurance & Guidelines
 
-When a customer submits a booking enquiry or posts a requirement lead, an email notification is automatically dispatched to the business owner:
-
-1. Sign up at [Resend](https://resend.com) and create an API Key.
-2. Add your sending domain (e.g. `notifications@srikuberadecor.com`) and verify DNS records.
-   *(Note: Resend allows testing with `onboarding@resend.dev` to the registered account email before domain verification).*
-3. Add the following variables to `.env.local` (and Netlify Environment Variables):
-   ```env
-   RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxx
-   RESEND_FROM=Sri Kubera Decor <notifications@srikuberadecor.com>
-   RESEND_FROM_EMAIL=notifications@srikuberadecor.com
-   NOTIFY_EMAIL=saravanan@srikuberadecor.com
-   ```
-4. In the Admin Panel under **Settings -> Business Information**, you can update the **Admin Notification Email** at any time.
-
----
-
-## 6. Admin Panel Modules Overview
-
-The admin panel is located at `/admin` and organized for quick phone and desktop operation:
-
-- **Dashboard (`/admin`)**:
-  - Live KPI cards: Published designs, pending enquiries, confirmed events this month, new requirements, total customers.
-  - "Needs Attention" list highlighting pending enquiries > 24 hours and uncontacted leads.
-  - Upcoming events calendar preview for the next 7 days.
-  - Inline lightweight SVG chart of enquiries over the last 30 days.
-  - Storage allocation meter (used vs 1 GB free Supabase tier) with 70% and 90% warnings.
-- **Designs (`/admin/designs`)**:
-  - Filter by category and status (Draft, Published, Archived).
-  - Multi-photo upload with drag-and-drop reordering, cover photo selection, and alt text.
-  - Auto-generated URL slugs, inclusion tags with quick suggestions, and rupee price with "Price on request" toggle.
-  - Live preview card showing the exact rendering on the public site.
-  - Soft archive with restore support; guarded hard delete preventing deletion if booking enquiries exist.
-- **Media Library (`/admin/media`)**:
-  - Photo grid showing usage counts across designs. Filter by "All" or "Unused".
-  - Safe deletion preventing accidental deletion of photos currently in use.
-- **Categories (`/admin/categories`)**:
-  - Add, edit, activate/deactivate, and drag-and-drop reorder.
-  - Safeguarded deletion requiring reassignment of existing designs to another category first.
-- **Enquiries (`/admin/enquiries`)**:
-  - Search by enquiry ID, customer name, or phone number.
-  - Filter by status, date range, and category.
-  - Detail page with visual status stepper (`pending` -> `contacted` -> `confirmed` -> `rejected`), customer notes, internal private notes (`booking_private`), date clash alerts, and quick WhatsApp/Call links.
-  - UTF-8 with BOM CSV export for Microsoft Excel.
-- **Calendar (`/admin/calendar`)**:
-  - Custom month grid showing confirmed events by `event_date`.
-  - Date clash indicators and side drawer displaying daily schedules.
-- **Requirements (`/admin/requirements`)**:
-  - Lead management for submissions from the public "Post Your Requirement" section.
-  - Workflow status (`new` -> `contacted` -> `converted` -> `closed`), internal follow-up notes, and quick WhatsApp/Call actions.
-- **Customers (`/admin/customers`)**:
-  - Customer directory with search and enquiry history timeline.
-- **Services (`/admin/services`)**:
-  - Manage public service offerings with Lucide icons, descriptions, and drag-and-drop ordering.
-- **Testimonials (`/admin/testimonials`)**:
-  - Authentic customer reviews management. Only published reviews display on the public website.
-- **Site Content (`/admin/site-content`)**:
-  - Manage 1 to 5 hero carousel slides with headline, subheadline, and image from media library.
-  - About text and proprietor name.
-  - Real stats (events done, years in business, happy customers). Hidden if left empty.
-  - Header announcement bar toggle and text.
-- **Settings (`/admin/settings`)**:
-  - Business phone, WhatsApp, address, working hours, tagline, Google Maps link, and notification email.
-  - Admin account password change and global sign-out.
-- **Activity Log (`/admin/activity`)**:
-  - Audit trail of administrative actions.
-
----
-
-## 7. Quality Assurance & Security Checklist
-
-- [x] Zero emoji policy: all icons use `lucide-react`.
-- [x] 12-hour inactivity sign-out enforced via cookie timestamps in `src/proxy.ts`.
-- [x] Strict Row Level Security: customer profiles and booking private data cannot be queried by unauthorized visitors.
-- [x] Mobile icon-safe inputs: `pl-10`, `pr-10`, minimum height 44 px, font size >= 16 px to prevent iOS safari auto-zoom.
-- [x] Mobile bottom navigation bar for screens under 768 px.
-- [x] Excel-compatible CSV exports with UTF-8 BOM encoding.
-- [x] Instant cache revalidation (`revalidatePath`) on all admin mutations.
-
----
-
-## 8. CI/CD Pipeline
-
-Every push to `main` runs a GitHub Actions pipeline before anything is deployed to Netlify. Production deployment is blocked if any check fails.
-
-### Pipeline Flow
-
-```
-Developer
-   |
-   v
-git push origin main
-   |
-   v
-GitHub Actions — CI job
-   |
-   +-- npm ci (install dependencies)
-   |
-   +-- npm run lint (ESLint)
-   |
-   +-- npm run typecheck (tsc --noEmit)
-   |
-   +-- npm run build (Next.js production build)
-   |
-   v
-ALL CHECKS PASS?
-   |
-   Yes --> Deploy job --> netlify deploy --prod
-   |
-   No  --> STOP. Production deployment is blocked.
-```
-
-Pull requests targeting `main` run the full CI job (lint, typecheck, build) but **never** trigger a deployment.
-
-### Required GitHub Repository Secrets
-
-Navigate to your repository on GitHub: **Settings > Secrets and variables > Actions > New repository secret**
-
-| Secret Name | Description |
-|---|---|
-| `NETLIFY_AUTH_TOKEN` | A Netlify personal access token. Generate at: Netlify > User Settings > OAuth applications > Personal access tokens. |
-| `NETLIFY_SITE_ID` | The API ID of your Netlify site. Find it at: Netlify > Site > Site configuration > Site information > Site ID. |
-
-**Never paste actual secret values into this file or into the workflow YAML.**
-
-### Optional — GitHub Repository Variables (Non-Secret)
-
-These `NEXT_PUBLIC_*` values are used only during the CI build step so Next.js can compile without crashing on missing env vars. They are not secret. Set them under **Settings > Secrets and variables > Actions > Variables**.
-
-| Variable | Example Value |
-|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | `https://your-project.supabase.co` |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `eyJhbGci...` (anon key, safe to expose) |
-| `NEXT_PUBLIC_APP_URL` | `https://srikuberadecor.com` |
-| `NEXT_PUBLIC_BUSINESS_WHATSAPP` | `917373876879` |
-| `NEXT_PUBLIC_BUSINESS_PHONE` | `7373876879` |
-| `NEXT_PUBLIC_BUSINESS_PHONE_2` | `9486064769` |
-
-### Netlify Git Auto-Deployment Notice
-
-If you connected your GitHub repository directly to Netlify ("Continuous Deployment" in the Netlify dashboard), Netlify will also trigger its own build on every push to `main`. This means **two deployments will run simultaneously** — one from Netlify's native integration and one from GitHub Actions.
-
-**Recommended architecture (choose one):**
-
-- **GitHub Actions controls deployment (recommended):** Disable Netlify's "Continuous Deployment" in the Netlify dashboard under **Site > Site configuration > Build & deploy > Continuous deployment**. GitHub Actions will be the single deployment controller.
-- **Netlify controls deployment:** Do not add `NETLIFY_AUTH_TOKEN` / `NETLIFY_SITE_ID` secrets. The CI job will still run (lint, typecheck, build) but the deploy job will be skipped. Netlify will deploy on its own schedule.
-
+- **Zero Emoji Policy**: All icons in the user interface and admin panel are strictly rendered using `lucide-react`.
+- **Responsive Architecture**: Desktop navigation bar with dropdowns; mobile bottom navigation bar on screens under 768 px.
+- **Form UX**: Touch-target safe inputs (`min-h-[44px]`), font size >= 16px to prevent iOS auto-zoom, and instant user feedback via toast notifications.
+- **Security**: Inactivity timeout at 12 hours, server-side role validation, strict PostgreSQL Row Level Security (RLS).
