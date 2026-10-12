@@ -417,7 +417,8 @@ img, svg { display: block; }
 .input-field {
   width: 100%;
   min-height: 2.75rem;
-  padding: 0.75rem 1rem;
+  padding-block: 0.75rem;
+  padding-inline: 1rem;
   border-radius: 0.5rem;
   border: 1px solid var(--color-ivory-400);
   background: #ffffff;

@@ -32,8 +32,7 @@ test.describe("Customer Portal (/enquiries & /profile) Reliability Tests", () =>
       {
         name: "test_auth_user",
         value: encodeURIComponent(JSON.stringify(customerUser)),
-        domain: "localhost",
-        path: "/",
+        url: "http://localhost:3000",
       },
     ]);
 
@@ -88,8 +87,7 @@ test.describe("Customer Portal (/enquiries & /profile) Reliability Tests", () =>
       {
         name: "test_auth_user",
         value: encodeURIComponent(JSON.stringify(customerUser)),
-        domain: "localhost",
-        path: "/",
+        url: "http://localhost:3000",
       },
     ]);
 
@@ -140,8 +138,7 @@ test.describe("Customer Portal (/enquiries & /profile) Reliability Tests", () =>
       {
         name: "test_auth_user",
         value: encodeURIComponent(JSON.stringify(customerUserWithBookings)),
-        domain: "localhost",
-        path: "/",
+        url: "http://localhost:3000",
       },
     ]);
 
@@ -175,8 +172,7 @@ test.describe("Customer Portal (/enquiries & /profile) Reliability Tests", () =>
       {
         name: "test_auth_user",
         value: encodeURIComponent(JSON.stringify(customerUser)),
-        domain: "localhost",
-        path: "/",
+        url: "http://localhost:3000",
       },
     ]);
 

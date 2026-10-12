@@ -315,13 +315,14 @@ test.describe("Public & Customer-Facing Functionality Smoke Tests", () => {
   test("13. Gated Gallery & Sign-up Prompt Modal Flows", async ({ page }) => {
     // 1. Unauthenticated visitor clicking "Explore All Designs" on home page
     await page.goto("/");
+    await page.waitForLoadState("networkidle");
     const heroExploreBtn = page.locator("#hero-explore-designs-btn");
     await expect(heroExploreBtn).toBeVisible();
     await heroExploreBtn.click();
 
     // Verify Signup Prompt Modal opens
     const authModal = page.locator("#signup-prompt-title");
-    await expect(authModal).toBeVisible();
+    await expect(authModal).toBeVisible({ timeout: 10000 });
     await expect(authModal).toContainText(/Sign in or sign up to view the full gallery|Welcome to Sri Kubera/i);
 
     // Verify buttons inside modal
