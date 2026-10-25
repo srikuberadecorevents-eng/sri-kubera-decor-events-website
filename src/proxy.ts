@@ -11,8 +11,20 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith("/profile");
   const isAuthPage = pathname === "/login" || pathname === "/signup";
 
-  // Fast path: bypass all auth checks for public pages (/, /gallery, /services, /about, /contact)
-  if (!isAdminRoute && !isCustomerRoute && !isAuthPage) {
+  // Fast path: bypass all auth checks for static assets, favicons, and public pages
+  const isStaticAsset =
+    pathname === "/favicon.ico" ||
+    pathname === "/icon.png" ||
+    pathname === "/apple-icon.png" ||
+    pathname.startsWith("/favicon") ||
+    pathname.startsWith("/icon-") ||
+    pathname.startsWith("/apple-") ||
+    pathname.endsWith(".ico") ||
+    pathname.endsWith(".png") ||
+    pathname.endsWith(".jpg") ||
+    pathname.endsWith(".webmanifest");
+
+  if (isStaticAsset || (!isAdminRoute && !isCustomerRoute && !isAuthPage)) {
     return NextResponse.next();
   }
 
@@ -74,14 +86,19 @@ export async function proxy(request: NextRequest) {
     // Allow /admin/login without auth
     if (pathname === "/admin/login") {
       if (user) {
-        let isAdmin = user.user_metadata?.role === "admin";
-        if (!isAdmin) {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("role")
-            .eq("id", user.id)
-            .single();
-          isAdmin = profile?.role === "admin";
+        const metaRole = user.app_metadata?.role || user.user_metadata?.role;
+        let isAdmin = metaRole === "admin";
+        if (!isAdmin && !metaRole) {
+          try {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("role")
+              .eq("id", user.id)
+              .maybeSingle();
+            isAdmin = profile?.role === "admin";
+          } catch {
+            isAdmin = false;
+          }
         }
         if (isAdmin) {
           return redirectWithCookies(new URL("/admin", request.url));
@@ -120,14 +137,20 @@ export async function proxy(request: NextRequest) {
     }
 
     // Verify admin role - ONLY admin routes require role === 'admin'
-    let isAdmin = user.user_metadata?.role === "admin";
-    if (!isAdmin) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-      isAdmin = profile?.role === "admin";
+    // Step 7.4 Optimization: read role from metadata/claims to avoid database queries on every request
+    const metaRole = user.app_metadata?.role || user.user_metadata?.role;
+    let isAdmin = metaRole === "admin";
+    if (!isAdmin && !metaRole) {
+      try {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .maybeSingle();
+        isAdmin = profile?.role === "admin";
+      } catch {
+        isAdmin = false;
+      }
     }
 
     if (!isAdmin) {

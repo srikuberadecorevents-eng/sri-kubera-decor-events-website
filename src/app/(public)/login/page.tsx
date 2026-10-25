@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -48,6 +48,10 @@ function LoginForm() {
   const redirectTo =
     searchParams.get("redirectTo") || searchParams.get("redirect") || "/enquiries";
   const supabase = createClient();
+
+  useEffect(() => {
+    if (searchParams.get("mode") === "forgot") setMode("forgot");
+  }, [searchParams]);
 
   const {
     register: loginRegister,

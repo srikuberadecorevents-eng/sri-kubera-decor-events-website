@@ -39,6 +39,7 @@ import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { Modal } from "@/components/admin/Modal";
 import { TableSkeleton } from "@/components/admin/Skeleton";
 import { FormField } from "@/components/admin/FormField";
+import { deleteAdminItem } from "@/app/actions/admin-delete";
 import type { Category } from "@/types";
 
 interface CategoryWithCount extends Category {
@@ -58,6 +59,8 @@ function SortableCategoryItem({
   onToggleActive,
   onDeleteRequest,
   saving,
+  isSelected,
+  onToggleSelect,
 }: {
   cat: CategoryWithCount;
   editId: string | null;
@@ -71,6 +74,8 @@ function SortableCategoryItem({
   onToggleActive: (c: CategoryWithCount) => void;
   onDeleteRequest: (c: CategoryWithCount) => void;
   saving: boolean;
+  isSelected: boolean;
+  onToggleSelect: (id: string) => void;
 }) {
   const {
     attributes,
@@ -108,6 +113,15 @@ function SortableCategoryItem({
       >
         <GripVertical size={18} />
       </button>
+
+      {/* Row Checkbox */}
+      <input
+        type="checkbox"
+        checked={isSelected}
+        onChange={() => onToggleSelect(cat.id)}
+        aria-label={`Select ${cat.name}`}
+        className="w-4 h-4 rounded text-[#0B4A3A] focus:ring-[#0B4A3A] border-[#E8E2D5] cursor-pointer shrink-0"
+      />
 
       {isEditing ? (
         <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
@@ -244,6 +258,21 @@ export default function AdminCategoriesPage() {
   // Simple confirm delete state (when 0 designs)
   const [simpleDeleteOpen, setSimpleDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Bulk selection state
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    setSelectedIds(checked ? categories.map((c) => c.id) : []);
+  };
 
   const supabase = createClient();
 
@@ -461,25 +490,30 @@ export default function AdminCategoriesPage() {
   // Execute simple delete (0 designs)
   const handleExecuteSimpleDelete = async () => {
     if (!catToDelete) return;
+    const cat = catToDelete;
+    const previous = [...categories];
+    // Optimistic update
+    setCategories((prev) => prev.filter((c) => c.id !== cat.id));
+    setSelectedIds((prev) => prev.filter((id) => id !== cat.id));
+    setSimpleDeleteOpen(false);
+    setCatToDelete(null);
+
     setDeleting(true);
     try {
-      const { error } = await supabase
-        .from("categories")
-        .delete()
-        .eq("id", catToDelete.id);
+      const res = await deleteAdminItem({
+        entity: "categories",
+        id: cat.id,
+      });
 
-      if (error) throw error;
+      if (!res.success) {
+        throw new Error(res.error || "Failed to delete category");
+      }
 
-      const { revalidatePublicPages } = await import("@/app/actions/revalidate");
-      await revalidatePublicPages(["/", "/gallery"]);
-
-      toast.success(`Deleted category "${catToDelete.name}"`);
-      setSimpleDeleteOpen(false);
-      setCatToDelete(null);
-      fetchCategories();
-    } catch (err) {
+      toast.success(`Deleted category "${cat.name}"`);
+    } catch (err: any) {
       console.error("Delete error:", err);
-      toast.error("Failed to delete category");
+      toast.error(err.message || "Failed to delete category");
+      setCategories(previous);
     } finally {
       setDeleting(false);
     }
@@ -492,40 +526,66 @@ export default function AdminCategoriesPage() {
       return;
     }
 
+    const cat = catToDelete;
+    const targetCat = categories.find((c) => c.id === targetCatId);
     setMoving(true);
     try {
-      // 1. Move all designs from old category to target category
-      const { error: moveErr } = await supabase
-        .from("designs")
-        .update({ category_id: targetCatId })
-        .eq("category_id", catToDelete.id);
+      const res = await deleteAdminItem({
+        entity: "categories",
+        id: cat.id,
+        reassignCategoryId: targetCatId,
+      });
 
-      if (moveErr) throw moveErr;
+      if (!res.success) {
+        throw new Error(res.error || "Failed to reassign and delete category");
+      }
 
-      // 2. Delete the old category
-      const { error: delErr } = await supabase
-        .from("categories")
-        .delete()
-        .eq("id", catToDelete.id);
-
-      if (delErr) throw delErr;
-
-      const { revalidatePublicPages } = await import("@/app/actions/revalidate");
-      await revalidatePublicPages(["/", "/gallery"]);
-
-      const targetCat = categories.find((c) => c.id === targetCatId);
       toast.success(
-        `Moved ${catToDelete.designCount} designs to "${targetCat?.name}" and deleted "${catToDelete.name}"`
+        `Moved ${cat.designCount} designs to "${targetCat?.name || "new category"}" and deleted "${cat.name}"`
       );
 
       setMoveModalOpen(false);
       setCatToDelete(null);
       fetchCategories();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Move and delete error:", err);
-      toast.error("Failed to reassign designs and delete category");
+      toast.error(err.message || "Failed to reassign designs and delete category");
     } finally {
       setMoving(false);
+    }
+  };
+
+  // Execute bulk delete
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    const count = selectedIds.length;
+    const previous = [...categories];
+    const idsToDelete = [...selectedIds];
+
+    setCategories((prev) => prev.filter((c) => !idsToDelete.includes(c.id)));
+    setSelectedIds([]);
+    setBulkDeleteOpen(false);
+    setBulkDeleting(true);
+
+    try {
+      const res = await deleteAdminItem({
+        entity: "categories",
+        ids: idsToDelete,
+        force: true,
+      });
+
+      if (!res.success) {
+        throw new Error(res.error || "Failed to delete categories");
+      }
+
+      toast.success(`Deleted ${count} category${count !== 1 ? "ies" : ""}`);
+      fetchCategories();
+    } catch (err: any) {
+      console.error("Bulk delete error:", err);
+      toast.error(err.message || "Failed to delete categories");
+      setCategories(previous);
+    } finally {
+      setBulkDeleting(false);
     }
   };
 
@@ -600,13 +660,35 @@ export default function AdminCategoriesPage() {
 
       {/* Categories Reorderable List */}
       <div className="bg-white rounded-2xl border border-[#E8E2D5] overflow-hidden shadow-xs">
-        <div className="px-5 py-3.5 bg-[#FAF6EC]/60 border-b border-[#E8E2D5] flex items-center justify-between">
-          <span className="text-xs font-semibold uppercase tracking-wider text-[#17211E]">
-            Categories ({categories.length})
-          </span>
-          <span className="text-xs text-[#5D6D67]">
-            Drag handles on the left to reorder
-          </span>
+        <div className="px-5 py-3.5 bg-[#FAF6EC]/60 border-b border-[#E8E2D5] flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              checked={categories.length > 0 && selectedIds.length === categories.length}
+              onChange={(e) => handleSelectAll(e.target.checked)}
+              aria-label="Select all categories"
+              className="w-4 h-4 rounded text-[#0B4A3A] focus:ring-[#0B4A3A] border-[#E8E2D5] cursor-pointer"
+            />
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#17211E]">
+              Categories ({categories.length})
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {selectedIds.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setBulkDeleteOpen(true)}
+                className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-medium flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
+              >
+                <Trash2 size={13} />
+                Delete selected ({selectedIds.length})
+              </button>
+            )}
+            <span className="text-xs text-[#5D6D67] hidden sm:inline">
+              Drag handles on the left to reorder
+            </span>
+          </div>
         </div>
 
         {loading ? (
@@ -641,6 +723,8 @@ export default function AdminCategoriesPage() {
                     onToggleActive={handleToggleActive}
                     onDeleteRequest={handleDeleteRequest}
                     saving={savingEdit}
+                    isSelected={selectedIds.includes(cat.id)}
+                    onToggleSelect={toggleSelect}
                   />
                 ))}
               </ul>
@@ -648,6 +732,18 @@ export default function AdminCategoriesPage() {
           </DndContext>
         )}
       </div>
+
+      {/* Bulk Delete Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={bulkDeleteOpen}
+        onClose={() => setBulkDeleteOpen(false)}
+        onConfirm={handleBulkDelete}
+        title="Delete Selected Categories"
+        description={`Are you sure you want to delete ${selectedIds.length} categories? Any designs attached to these categories will have their category unlinked. This cannot be undone.`}
+        confirmLabel={`Delete ${selectedIds.length} Categories`}
+        isDestructive
+        isLoading={bulkDeleting}
+      />
 
       {/* Simple Delete Confirm Dialog */}
       <ConfirmDialog

@@ -18,6 +18,7 @@ import { compressAndUploadImage } from "@/lib/clientImageUpload";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { EmptyState } from "@/components/admin/EmptyState";
 import { CardGridSkeleton } from "@/components/admin/Skeleton";
+import { deleteAdminItem } from "@/app/actions/admin-delete";
 import toast from "react-hot-toast";
 
 interface MediaItem {
@@ -137,54 +138,57 @@ export default function AdminMediaPage() {
     return true;
   });
 
-  const toggleSelect = (id: string, isUsed: boolean) => {
-    if (isUsed) {
-      toast.error("Photos currently used in designs cannot be selected for deletion.");
-      return;
-    }
+  const toggleSelect = (id: string) => {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
   };
 
+  const handleSelectAll = (checked: boolean) => {
+    setSelectedIds(checked ? filteredMedia.map((m) => m.id) : []);
+  };
+
   const confirmDeleteSingle = (item: MediaItem) => {
-    if (item.usedInDesignsCount > 0) {
-      toast.error(`Cannot delete: This photo is used in ${item.usedInDesignsCount} design(s).`);
-      return;
-    }
     setItemToDelete(item);
     setDeleteDialogOpen(true);
   };
 
   const executeDelete = async () => {
+    const idsToDelete = itemToDelete ? [itemToDelete.id] : selectedIds;
+    if (idsToDelete.length === 0) return;
+
+    const previous = [...mediaList];
+    const previousSelected = [...selectedIds];
+    const targetItem = itemToDelete;
+
+    // Optimistic UI update
+    setMediaList((prev) => prev.filter((m) => !idsToDelete.includes(m.id)));
+    setSelectedIds((prev) => prev.filter((id) => !idsToDelete.includes(id)));
+    setItemToDelete(null);
+    setDeleteDialogOpen(false);
     setDeleting(true);
+
     try {
-      const idsToDelete = itemToDelete ? [itemToDelete.id] : selectedIds;
-      const items = mediaList.filter((m) => idsToDelete.includes(m.id));
+      const res = await deleteAdminItem({
+        entity: "media",
+        ids: idsToDelete,
+        force: true,
+      });
 
-      for (const item of items) {
-        // Delete from storage
-        await supabase.storage
-          .from("design-images")
-          .remove([item.path_card, item.path_full]);
-
-        // Delete row from media table
-        await supabase.from("media").delete().eq("id", item.id);
+      if (!res.success) {
+        throw new Error(res.error || "Failed to delete photo");
       }
 
       toast.success(
         idsToDelete.length === 1
-          ? "Photo deleted from storage"
-          : `${idsToDelete.length} unused photos deleted`
+          ? `Deleted photo ${targetItem?.original_name || ""}`
+          : `Deleted ${idsToDelete.length} photos`
       );
-
-      setSelectedIds([]);
-      setItemToDelete(null);
-      setDeleteDialogOpen(false);
-      fetchMedia();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Delete error:", err);
-      toast.error("Failed to delete selected photo(s)");
+      toast.error(err.message || "Failed to delete selected photo(s)");
+      setMediaList(previous);
+      setSelectedIds(previousSelected);
     } finally {
       setDeleting(false);
     }
@@ -309,7 +313,17 @@ export default function AdminMediaPage() {
           </button>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-xs text-[#5D6D67] cursor-pointer">
+            <input
+              type="checkbox"
+              checked={filteredMedia.length > 0 && selectedIds.length === filteredMedia.length}
+              onChange={(e) => handleSelectAll(e.target.checked)}
+              className="w-4 h-4 rounded text-red-600 focus:ring-red-500 cursor-pointer"
+            />
+            <span>Select All</span>
+          </label>
+
           {selectedIds.length > 0 && (
             <button
               type="button"
@@ -317,7 +331,7 @@ export default function AdminMediaPage() {
                 setItemToDelete(null);
                 setDeleteDialogOpen(true);
               }}
-              className="inline-flex items-center gap-1.5 min-h-[40px] px-4 py-2 rounded-xl bg-red-50 text-red-600 border border-red-200 text-xs font-semibold hover:bg-red-100 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 min-h-[40px] px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition-colors cursor-pointer shadow-xs"
             >
               <Trash2 size={14} />
               Delete {selectedIds.length} Selected
@@ -389,18 +403,16 @@ export default function AdminMediaPage() {
                     )}
                   </div>
 
-                  {/* Selection Checkbox for unused */}
-                  {!isUsed && (
-                    <div className="absolute top-2 right-2 z-10">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleSelect(item.id, isUsed)}
-                        className="w-4 h-4 rounded text-red-600 focus:ring-red-500 cursor-pointer"
-                        aria-label={`Select ${item.original_name}`}
-                      />
-                    </div>
-                  )}
+                  {/* Selection Checkbox */}
+                  <div className="absolute top-2 right-2 z-10">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleSelect(item.id)}
+                      className="w-4 h-4 rounded text-red-600 focus:ring-red-500 cursor-pointer shadow-sm"
+                      aria-label={`Select ${item.original_name || "photo"}`}
+                    />
+                  </div>
                 </div>
 
                 {/* Card Info */}
@@ -416,18 +428,13 @@ export default function AdminMediaPage() {
                     <button
                       type="button"
                       onClick={() => confirmDeleteSingle(item)}
-                      disabled={isUsed}
-                      className={`p-1 rounded transition-colors ${
-                        isUsed
-                          ? "opacity-30 cursor-not-allowed text-[#5D6D67]"
-                          : "hover:bg-red-50 text-red-600 cursor-pointer"
-                      }`}
+                      className="p-1 rounded text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
                       title={
                         isUsed
-                          ? "Cannot delete: photo is used in active designs"
-                          : "Delete unused photo"
+                          ? `Warning: photo is used in ${item.usedInDesignsCount} design(s)`
+                          : "Delete photo"
                       }
-                      aria-label="Delete photo"
+                      aria-label={`Delete photo ${item.original_name || ""}`}
                     >
                       <Trash2 size={13} />
                     </button>
@@ -446,10 +453,16 @@ export default function AdminMediaPage() {
         onConfirm={executeDelete}
         title={
           itemToDelete
-            ? "Delete Photograph"
-            : `Delete ${selectedIds.length} Unused Photos`
+            ? `Delete ${itemToDelete.original_name || "Photograph"}`
+            : `Delete ${selectedIds.length} Photographs`
         }
-        description="This will permanently remove the WebP image files from storage. This action cannot be undone."
+        description={
+          itemToDelete && itemToDelete.usedInDesignsCount > 0
+            ? `WARNING: This photo is currently linked to ${itemToDelete.usedInDesignsCount} active design(s). Deleting it will permanently remove the files from Supabase Storage and may break design images on the public site.`
+            : !itemToDelete && mediaList.some((m) => selectedIds.includes(m.id) && m.usedInDesignsCount > 0)
+            ? `WARNING: One or more selected photos are currently linked to active designs. Deleting them will permanently remove the files from Supabase Storage and may break gallery images.`
+            : "This will permanently delete the photograph files from Supabase Storage and remove their database records. This cannot be undone."
+        }
         confirmLabel="Delete Permanently"
         isDestructive
         isLoading={deleting}

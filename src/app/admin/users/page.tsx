@@ -17,11 +17,13 @@ import {
   ArrowRight,
   Loader2,
   CheckCircle2,
+  Trash2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { TableSkeleton } from "@/components/admin/Skeleton";
 import { EmptyState } from "@/components/admin/EmptyState";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
+import { deleteAdminItem } from "@/app/actions/admin-delete";
 import type { Profile, UserRole } from "@/types";
 import toast from "react-hot-toast";
 
@@ -41,6 +43,23 @@ export default function AdminUsersPage() {
   const [targetUser, setTargetUser] = useState<ProfileWithBookings | null>(null);
   const [targetRole, setTargetRole] = useState<UserRole>("user");
   const [updatingRole, setUpdatingRole] = useState(false);
+
+  // Delete & Bulk Action state
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [userToDelete, setUserToDelete] = useState<ProfileWithBookings | null>(null);
+  const [singleDeleteOpen, setSingleDeleteOpen] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    setSelectedIds(checked ? users.map((u) => u.id) : []);
+  };
 
   const supabase = createClient();
 
@@ -149,6 +168,80 @@ export default function AdminUsersPage() {
   const adminCount = users.filter((u) => u.role === "admin").length;
   const customerCount = users.filter((u) => u.role === "user").length;
 
+  const executeSingleDelete = async () => {
+    if (!userToDelete) return;
+    const target = userToDelete;
+    if (target.id === currentAdminId) {
+      toast.error("You cannot delete your own active administrator account.");
+      return;
+    }
+    const previous = [...users];
+
+    // Optimistic UI update
+    setUsers((prev) => prev.filter((u) => u.id !== target.id));
+    setSelectedIds((prev) => prev.filter((id) => id !== target.id));
+    setSingleDeleteOpen(false);
+    setUserToDelete(null);
+    setDeleting(true);
+
+    try {
+      const res = await deleteAdminItem({
+        entity: "users",
+        id: target.id,
+      });
+
+      if (!res.success) {
+        throw new Error(res.error || "Failed to delete user account");
+      }
+
+      toast.success(`Deleted account for "${target.name}"`);
+    } catch (err: any) {
+      console.error("Delete user error:", err);
+      toast.error(err.message || "Failed to delete user account");
+      setUsers(previous);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const executeBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (currentAdminId && selectedIds.includes(currentAdminId)) {
+      toast.error(
+        "You cannot delete your own active administrator account. Please uncheck your account."
+      );
+      return;
+    }
+    const count = selectedIds.length;
+    const previous = [...users];
+    const idsToDelete = [...selectedIds];
+
+    // Optimistic UI update
+    setUsers((prev) => prev.filter((u) => !idsToDelete.includes(u.id)));
+    setSelectedIds([]);
+    setBulkDeleteOpen(false);
+    setDeleting(true);
+
+    try {
+      const res = await deleteAdminItem({
+        entity: "users",
+        ids: idsToDelete,
+      });
+
+      if (!res.success) {
+        throw new Error(res.error || "Failed to delete user accounts");
+      }
+
+      toast.success(`Deleted ${count} user accounts`);
+    } catch (err: any) {
+      console.error("Bulk delete user error:", err);
+      toast.error(err.message || "Failed to delete user accounts");
+      setUsers(previous);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Header */}
@@ -163,6 +256,17 @@ export default function AdminUsersPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {selectedIds.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setBulkDeleteOpen(true)}
+              className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+            >
+              <Trash2 size={14} />
+              Delete Selected ({selectedIds.length})
+            </button>
+          )}
+
           <Link
             href="/admin/customers"
             className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 rounded-xl border border-[#E8E2D5] bg-white hover:bg-[#FAF6EC] text-[#17211E] text-xs font-semibold shadow-xs transition-colors"
@@ -302,17 +406,40 @@ export default function AdminUsersPage() {
         <>
           {/* Mobile Cards */}
           <div className="md:hidden space-y-3">
+            <div className="flex items-center justify-between px-1 text-xs text-[#5D6D67]">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={users.length > 0 && selectedIds.length === users.length}
+                  onChange={(e) => handleSelectAll(e.target.checked)}
+                  className="w-4 h-4 rounded text-[#0B4A3A] focus:ring-[#0B4A3A] border-[#E8E2D5]"
+                />
+                <span>Select All ({users.length})</span>
+              </label>
+            </div>
+
             {users.map((u) => {
               const isAdmin = u.role === "admin";
               const isCurrentAdmin = u.id === currentAdminId;
+              const isSelected = selectedIds.includes(u.id);
 
               return (
                 <div
                   key={u.id}
-                  className="bg-white rounded-2xl border border-[#E8E2D5] p-4 shadow-xs space-y-3"
+                  className={`bg-white rounded-2xl border p-4 shadow-xs space-y-3 transition-colors ${
+                    isSelected ? "border-[#0B4A3A] ring-1 ring-[#0B4A3A]/30 bg-emerald-50/20" : "border-[#E8E2D5]"
+                  }`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelect(u.id)}
+                        disabled={isCurrentAdmin}
+                        className="w-4 h-4 rounded text-[#0B4A3A] focus:ring-[#0B4A3A] border-[#E8E2D5] cursor-pointer disabled:opacity-40"
+                        aria-label={`Select ${u.name}`}
+                      />
                       <div className="w-9 h-9 rounded-full bg-[#0B4A3A] text-white flex items-center justify-center text-xs font-bold shrink-0">
                         {u.name?.charAt(0).toUpperCase() || "U"}
                       </div>
@@ -340,7 +467,7 @@ export default function AdminUsersPage() {
                     )}
                   </div>
 
-                  <div className="text-xs text-[#5D6D67] space-y-1">
+                  <div className="text-xs text-[#5D6D67] space-y-1 pl-6">
                     <p className="flex items-center gap-1.5">
                       <Phone size={12} className="text-[#0B4A3A]" />
                       {u.phone || "No phone number"}
@@ -359,24 +486,44 @@ export default function AdminUsersPage() {
                       History ({u.bookingsCount}) &rarr;
                     </Link>
 
-                    {isAdmin ? (
+                    <div className="flex items-center gap-2">
+                      {isAdmin ? (
+                        <button
+                          type="button"
+                          onClick={() => handleRoleChangeRequest(u, "user")}
+                          disabled={isCurrentAdmin}
+                          className="text-xs font-semibold px-2.5 py-1 rounded-lg border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                        >
+                          Revoke Admin
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleRoleChangeRequest(u, "admin")}
+                          className="text-xs font-semibold px-2.5 py-1 rounded-lg border border-[#0B4A3A]/30 bg-[#0B4A3A]/10 text-[#0B4A3A] hover:bg-[#0B4A3A]/20 transition-colors cursor-pointer"
+                        >
+                          Make Admin
+                        </button>
+                      )}
+
                       <button
                         type="button"
-                        onClick={() => handleRoleChangeRequest(u, "user")}
+                        onClick={() => {
+                          setUserToDelete(u);
+                          setSingleDeleteOpen(true);
+                        }}
                         disabled={isCurrentAdmin}
-                        className="text-xs font-semibold px-2.5 py-1 rounded-lg border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                        title={
+                          isCurrentAdmin
+                            ? "Cannot delete your own admin account"
+                            : `Delete account for ${u.name}`
+                        }
+                        aria-label={`Delete account for ${u.name}`}
                       >
-                        Revoke Admin
+                        <Trash2 size={15} />
                       </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleRoleChangeRequest(u, "admin")}
-                        className="text-xs font-semibold px-2.5 py-1 rounded-lg border border-[#0B4A3A]/30 bg-[#0B4A3A]/10 text-[#0B4A3A] hover:bg-[#0B4A3A]/20 transition-colors"
-                      >
-                        Make Admin
-                      </button>
-                    )}
+                    </div>
                   </div>
                 </div>
               );
@@ -389,21 +536,47 @@ export default function AdminUsersPage() {
               <table className="w-full text-left text-sm">
                 <thead className="bg-[#FAF6EC]/80 border-b border-[#E8E2D5] text-xs font-semibold text-[#17211E] uppercase tracking-wider">
                   <tr>
+                    <th className="py-3 px-4 w-10">
+                      <input
+                        type="checkbox"
+                        checked={users.length > 0 && selectedIds.length === users.length}
+                        onChange={(e) => handleSelectAll(e.target.checked)}
+                        aria-label="Select all users"
+                        className="w-4 h-4 rounded text-[#0B4A3A] focus:ring-[#0B4A3A] border-[#E8E2D5] cursor-pointer"
+                      />
+                    </th>
                     <th className="py-3 px-4">User Account</th>
                     <th className="py-3 px-4">Role</th>
                     <th className="py-3 px-4">Phone</th>
                     <th className="py-3 px-4">Bookings</th>
                     <th className="py-3 px-4">Joined Date</th>
-                    <th className="py-3 px-4 text-right">Role Action</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E8E2D5]">
                   {users.map((u) => {
                     const isAdmin = u.role === "admin";
                     const isCurrentAdmin = u.id === currentAdminId;
+                    const isSelected = selectedIds.includes(u.id);
 
                     return (
-                      <tr key={u.id} className="hover:bg-[#FAF6EC]/50 transition-colors">
+                      <tr
+                        key={u.id}
+                        className={`transition-colors ${
+                          isSelected ? "bg-emerald-50/40" : "hover:bg-[#FAF6EC]/50"
+                        }`}
+                      >
+                        <td className="py-3.5 px-4">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelect(u.id)}
+                            disabled={isCurrentAdmin}
+                            aria-label={`Select ${u.name}`}
+                            className="w-4 h-4 rounded text-[#0B4A3A] focus:ring-[#0B4A3A] border-[#E8E2D5] cursor-pointer disabled:opacity-40"
+                          />
+                        </td>
+
                         <td className="py-3.5 px-4">
                           <div className="flex items-center gap-2.5">
                             <div className="w-8 h-8 rounded-full bg-[#0B4A3A] text-white flex items-center justify-center text-xs font-bold shrink-0">
@@ -454,29 +627,49 @@ export default function AdminUsersPage() {
                         </td>
 
                         <td className="py-3.5 px-4 text-right">
-                          {isAdmin ? (
+                          <div className="flex items-center justify-end gap-2">
+                            {isAdmin ? (
+                              <button
+                                type="button"
+                                onClick={() => handleRoleChangeRequest(u, "user")}
+                                disabled={isCurrentAdmin}
+                                title={
+                                  isCurrentAdmin
+                                    ? "Cannot revoke your own active admin session"
+                                    : "Demote to customer role"
+                                }
+                                className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                              >
+                                Revoke Admin
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleRoleChangeRequest(u, "admin")}
+                                className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-[#0B4A3A]/30 bg-[#0B4A3A]/10 text-[#0B4A3A] hover:bg-[#0B4A3A]/20 transition-colors cursor-pointer"
+                              >
+                                Make Admin
+                              </button>
+                            )}
+
                             <button
                               type="button"
-                              onClick={() => handleRoleChangeRequest(u, "user")}
+                              onClick={() => {
+                                setUserToDelete(u);
+                                setSingleDeleteOpen(true);
+                              }}
                               disabled={isCurrentAdmin}
+                              className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                               title={
                                 isCurrentAdmin
-                                  ? "Cannot revoke your own active admin session"
-                                  : "Demote to customer role"
+                                  ? "Cannot delete your own admin account"
+                                  : `Delete user account for ${u.name}`
                               }
-                              className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                              aria-label={`Delete account for ${u.name}`}
                             >
-                              Revoke Admin
+                              <Trash2 size={15} />
                             </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleRoleChangeRequest(u, "admin")}
-                              className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-[#0B4A3A]/30 bg-[#0B4A3A]/10 text-[#0B4A3A] hover:bg-[#0B4A3A]/20 transition-colors cursor-pointer"
-                            >
-                              Make Admin
-                            </button>
-                          )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -508,6 +701,33 @@ export default function AdminUsersPage() {
         }
         isDestructive={targetRole === "user"}
         isLoading={updatingRole}
+      />
+
+      {/* Single Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={singleDeleteOpen}
+        onClose={() => {
+          setSingleDeleteOpen(false);
+          setUserToDelete(null);
+        }}
+        onConfirm={executeSingleDelete}
+        title="Delete User Account"
+        description={`Are you sure you want to delete the user account for "${userToDelete?.name}"? All related enquiries and account data will be permanently removed. This cannot be undone.`}
+        confirmLabel="Delete User"
+        isDestructive
+        isLoading={deleting}
+      />
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={bulkDeleteOpen}
+        onClose={() => setBulkDeleteOpen(false)}
+        onConfirm={executeBulkDelete}
+        title="Delete Selected Users"
+        description={`Are you sure you want to delete ${selectedIds.length} user accounts? Any related enquiries will also be permanently removed. This cannot be undone.`}
+        confirmLabel={`Delete ${selectedIds.length} Users`}
+        isDestructive
+        isLoading={deleting}
       />
     </div>
   );

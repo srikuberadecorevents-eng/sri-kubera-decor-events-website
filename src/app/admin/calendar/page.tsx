@@ -14,10 +14,13 @@ import {
   ArrowRight,
   X,
   Filter,
+  Trash2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Drawer } from "@/components/admin/Drawer";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
+import { deleteAdminItem } from "@/app/actions/admin-delete";
 import type { Booking } from "@/types";
 import toast from "react-hot-toast";
 
@@ -36,6 +39,11 @@ export default function AdminCalendarPage() {
     null
   );
   const [selectedDateLabel, setSelectedDateLabel] = useState("");
+
+  // Delete state
+  const [eventToDelete, setEventToDelete] = useState<Booking | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const supabase = createClient();
 
@@ -100,6 +108,43 @@ export default function AdminCalendarPage() {
   // Today button
   const goToToday = () => {
     setCurrentDate(new Date());
+  };
+
+  const executeDelete = async () => {
+    if (!eventToDelete) return;
+    const target = eventToDelete;
+    const previousEvents = [...events];
+    const previousSelected = selectedDayEvents ? [...selectedDayEvents] : null;
+
+    // Optimistic UI updates
+    setEvents((prev) => prev.filter((ev) => ev.id !== target.id));
+    if (selectedDayEvents) {
+      const updated = selectedDayEvents.filter((ev) => ev.id !== target.id);
+      setSelectedDayEvents(updated.length > 0 ? updated : null);
+    }
+    setDeleteDialogOpen(false);
+    setEventToDelete(null);
+    setDeleting(true);
+
+    try {
+      const res = await deleteAdminItem({
+        entity: "calendar",
+        id: target.id,
+      });
+
+      if (!res.success) {
+        throw new Error(res.error || "Failed to delete calendar booking event");
+      }
+
+      toast.success(`Deleted event booking #${target.enquiry_id}`);
+    } catch (err: any) {
+      console.error("Delete calendar event error:", err);
+      toast.error(err.message || "Failed to delete calendar booking");
+      setEvents(previousEvents);
+      setSelectedDayEvents(previousSelected);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   // Map events by 'YYYY-MM-DD'
@@ -364,8 +409,8 @@ interface CalendarCell {
 
               <div className="space-y-1 text-xs text-[#17211E]">
                 <p>
-                  <strong>Customer:</strong> {ev.profiles?.name || "Customer"} (
-                  {ev.profiles?.phone || "No phone"})
+                  <strong>Customer:</strong> {ev.customer_name || ev.profiles?.name || "Customer"}{" "}
+                  ({ev.customer_phone || ev.profiles?.phone || "No phone"})
                 </p>
                 <p>
                   <strong>Design:</strong> {ev.designs?.title || "Custom Stage"}
@@ -378,27 +423,57 @@ interface CalendarCell {
               </div>
 
               <div className="pt-2 border-t border-[#E8E2D5] flex items-center justify-between">
-                {ev.profiles?.phone && (
+                {(ev.customer_phone || ev.profiles?.phone) && (
                   <a
-                    href={`tel:${ev.profiles.phone}`}
+                    href={`tel:${ev.customer_phone || ev.profiles?.phone}`}
                     className="text-xs font-semibold text-[#0B4A3A] hover:underline flex items-center gap-1"
                   >
                     <PhoneCall size={13} />
                     Call
                   </a>
                 )}
-                <Link
-                  href={`/admin/enquiries/${ev.id}`}
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-[#0B4A3A] hover:underline ml-auto"
-                >
-                  Open Enquiry Details
-                  <ArrowRight size={13} />
-                </Link>
+                <div className="flex items-center gap-2 ml-auto">
+                  <Link
+                    href={`/admin/enquiries/${ev.id}`}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-[#0B4A3A] hover:underline"
+                  >
+                    Open Enquiry Details
+                    <ArrowRight size={13} />
+                  </Link>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEventToDelete(ev);
+                      setDeleteDialogOpen(true);
+                    }}
+                    className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                    title={`Delete booking #${ev.enquiry_id}`}
+                    aria-label={`Delete booking #${ev.enquiry_id}`}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </div>
             </div>
           ))}
         </div>
       </Drawer>
+
+      {/* Delete Calendar Booking Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={deleteDialogOpen}
+        onClose={() => {
+          setDeleteDialogOpen(false);
+          setEventToDelete(null);
+        }}
+        onConfirm={executeDelete}
+        title="Delete Calendar Booking"
+        description={`Are you sure you want to delete event booking #${eventToDelete?.enquiry_id}? This will remove the booking enquiry from the schedule and database. This cannot be undone.`}
+        confirmLabel="Delete Booking"
+        isDestructive
+        isLoading={deleting}
+      />
     </div>
   );
 }

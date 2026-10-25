@@ -42,6 +42,7 @@ import toast from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { TableSkeleton } from "@/components/admin/Skeleton";
+import { deleteAdminItem } from "@/app/actions/admin-delete";
 import type { Service } from "@/types";
 
 const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
@@ -69,6 +70,8 @@ function SortableServiceItem({
   onToggleActive,
   onDeleteRequest,
   saving,
+  isSelected,
+  onToggleSelect,
 }: {
   svc: Service;
   editId: string | null;
@@ -82,6 +85,8 @@ function SortableServiceItem({
   onToggleActive: (s: Service) => void;
   onDeleteRequest: (s: Service) => void;
   saving: boolean;
+  isSelected: boolean;
+  onToggleSelect: (id: string) => void;
 }) {
   const {
     attributes,
@@ -195,6 +200,15 @@ function SortableServiceItem({
               <GripVertical size={18} />
             </button>
 
+            {/* Row Checkbox */}
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={() => onToggleSelect(svc.id)}
+              aria-label={`Select ${svc.title}`}
+              className="w-4 h-4 rounded text-[#0B4A3A] focus:ring-[#0B4A3A] border-[#E8E2D5] cursor-pointer shrink-0 mt-1 sm:mt-0"
+            />
+
             <div className="w-10 h-10 rounded-xl bg-[#FAF6EC] text-[#0B4A3A] flex items-center justify-center shrink-0 border border-[#E8E2D5]">
               <IconComp size={20} />
             </div>
@@ -282,6 +296,21 @@ export default function AdminServicesPage() {
   const [serviceToDelete, setServiceToDelete] = useState<Service | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Bulk selection state
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    setSelectedIds(checked ? services.map((s) => s.id) : []);
+  };
 
   const supabase = createClient();
 
@@ -450,27 +479,65 @@ export default function AdminServicesPage() {
 
   const executeDelete = async () => {
     if (!serviceToDelete) return;
+    const target = serviceToDelete;
+    const previous = [...services];
+
+    // Optimistic UI update
+    setServices((prev) => prev.filter((s) => s.id !== target.id));
+    setSelectedIds((prev) => prev.filter((id) => id !== target.id));
+    setDeleteDialogOpen(false);
+    setServiceToDelete(null);
     setDeleting(true);
+
     try {
-      const { error } = await supabase
-        .from("services")
-        .delete()
-        .eq("id", serviceToDelete.id);
+      const res = await deleteAdminItem({
+        entity: "services",
+        id: target.id,
+      });
 
-      if (error) throw error;
+      if (!res.success) {
+        throw new Error(res.error || "Failed to delete service");
+      }
 
-      const { revalidatePublicPages } = await import("@/app/actions/revalidate");
-      await revalidatePublicPages(["/services"]);
-
-      toast.success(`Deleted service "${serviceToDelete.title}"`);
-      setDeleteDialogOpen(false);
-      setServiceToDelete(null);
-      fetchServices();
-    } catch (err) {
+      toast.success(`Deleted service "${target.title}"`);
+    } catch (err: any) {
       console.error("Delete service error:", err);
-      toast.error("Failed to delete service");
+      toast.error(err.message || "Failed to delete service");
+      setServices(previous);
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    const count = selectedIds.length;
+    const previous = [...services];
+    const idsToDelete = [...selectedIds];
+
+    // Optimistic UI update
+    setServices((prev) => prev.filter((s) => !idsToDelete.includes(s.id)));
+    setSelectedIds([]);
+    setBulkDeleteOpen(false);
+    setBulkDeleting(true);
+
+    try {
+      const res = await deleteAdminItem({
+        entity: "services",
+        ids: idsToDelete,
+      });
+
+      if (!res.success) {
+        throw new Error(res.error || "Failed to delete services");
+      }
+
+      toast.success(`Deleted ${count} services`);
+    } catch (err: any) {
+      console.error("Bulk delete error:", err);
+      toast.error(err.message || "Failed to delete services");
+      setServices(previous);
+    } finally {
+      setBulkDeleting(false);
     }
   };
 
@@ -557,13 +624,35 @@ export default function AdminServicesPage() {
 
       {/* Services List */}
       <div className="bg-white rounded-2xl border border-[#E8E2D5] overflow-hidden shadow-xs">
-        <div className="px-5 py-3.5 bg-[#FAF6EC]/60 border-b border-[#E8E2D5] flex items-center justify-between">
-          <span className="text-xs font-semibold uppercase tracking-wider text-[#17211E]">
-            Active Services ({services.length})
-          </span>
-          <span className="text-xs text-[#5D6D67]">
-            Drag handles on the left to reorder
-          </span>
+        <div className="px-5 py-3.5 bg-[#FAF6EC]/60 border-b border-[#E8E2D5] flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              checked={services.length > 0 && selectedIds.length === services.length}
+              onChange={(e) => handleSelectAll(e.target.checked)}
+              aria-label="Select all services"
+              className="w-4 h-4 rounded text-[#0B4A3A] focus:ring-[#0B4A3A] border-[#E8E2D5] cursor-pointer"
+            />
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#17211E]">
+              Active Services ({services.length})
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {selectedIds.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setBulkDeleteOpen(true)}
+                className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-medium flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
+              >
+                <Trash2 size={13} />
+                Delete selected ({selectedIds.length})
+              </button>
+            )}
+            <span className="text-xs text-[#5D6D67] hidden sm:inline">
+              Drag handles on the left to reorder
+            </span>
+          </div>
         </div>
 
         {loading ? (
@@ -596,6 +685,8 @@ export default function AdminServicesPage() {
                     onToggleActive={handleToggleActive}
                     onDeleteRequest={handleDeleteRequest}
                     saving={savingEdit}
+                    isSelected={selectedIds.includes(svc.id)}
+                    onToggleSelect={toggleSelect}
                   />
                 ))}
               </ul>
@@ -617,6 +708,18 @@ export default function AdminServicesPage() {
         confirmLabel="Delete Service"
         isDestructive
         isLoading={deleting}
+      />
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={bulkDeleteOpen}
+        onClose={() => setBulkDeleteOpen(false)}
+        onConfirm={handleBulkDelete}
+        title="Delete Selected Services"
+        description={`Are you sure you want to delete ${selectedIds.length} services? They will be removed from the public website. This cannot be undone.`}
+        confirmLabel={`Delete ${selectedIds.length} Services`}
+        isDestructive
+        isLoading={bulkDeleting}
       />
     </div>
   );

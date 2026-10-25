@@ -14,8 +14,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { design_id } = body;
+    const body = await request.json().catch(() => ({}));
+    const {
+      design_id,
+      name,
+      phone,
+      email,
+      event_date,
+      venue,
+      message,
+    } = body;
 
     if (!design_id) {
       return NextResponse.json({ error: "Design ID is required" }, { status: 400 });
@@ -36,27 +44,48 @@ export async function POST(request: NextRequest) {
       validDesignId = design.id;
     } else {
       const fallback = INITIAL_DESIGNS.find((d) => d.id === design_id);
-      if (!fallback) {
+      if (fallback) {
+        designTitle = fallback.title;
+        // Search if this fallback exists in DB by title
+        const { data: matchedDbDesign } = await supabase
+          .from("designs")
+          .select("id, title")
+          .ilike("title", fallback.title)
+          .maybeSingle();
+        if (matchedDbDesign) {
+          validDesignId = matchedDbDesign.id;
+        }
+      } else {
         return NextResponse.json({ error: "Design not found" }, { status: 404 });
       }
-      designTitle = fallback.title;
-      validDesignId = null;
     }
 
-    // Fetch user profile
+    // Fetch user profile as fallback
     const { data: profile } = await supabase
       .from("profiles")
       .select("name, email, phone")
       .eq("id", user.id)
-      .single();
+      .maybeSingle();
+
+    const customerName = name || profile?.name || user.user_metadata?.name || "Customer";
+    const customerPhone = phone || profile?.phone || user.user_metadata?.phone || null;
+    const customerEmail = email || profile?.email || user.email || null;
 
     // Generate unique enquiry_id using DB function
-    const { data: enquiryIdData, error: fnError } = await supabase
+    const { data: enquiryIdData } = await supabase
       .rpc("generate_enquiry_id");
 
     // Fallback ID generator in case RPC function isn't yet migrated
     const enquiry_id =
       enquiryIdData || `A${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const adminNote = [
+      `Enquired design: ${designTitle}`,
+      customerName ? `Client: ${customerName}` : "",
+      customerPhone ? `Phone: ${customerPhone}` : "",
+      venue ? `Venue: ${venue}` : "",
+      message ? `Notes: ${message}` : "",
+    ].filter(Boolean).join(". ");
 
     // Insert booking
     const { data: booking, error: bookingError } = await supabase
@@ -65,7 +94,13 @@ export async function POST(request: NextRequest) {
         enquiry_id,
         user_id: user.id,
         design_id: validDesignId,
-        admin_notes: validDesignId ? null : `Enquired design: ${designTitle}`,
+        customer_name: customerName,
+        customer_phone: customerPhone,
+        customer_email: customerEmail,
+        event_date: event_date || null,
+        venue: venue || null,
+        message: message || adminNote,
+        admin_notes: adminNote,
         status: "pending",
       })
       .select()

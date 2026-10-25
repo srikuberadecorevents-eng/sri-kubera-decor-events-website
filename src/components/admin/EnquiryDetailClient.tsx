@@ -22,11 +22,12 @@ import {
   Check,
   History,
   FileText,
-  DollarSign,
   Download,
+  Trash2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import type {
   Booking,
   BookingStatus,
@@ -196,15 +197,80 @@ export function EnquiryDetailClient({
     }
   };
 
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteEnquiry = async () => {
+    setDeleting(true);
+    try {
+      const { deleteAdminItem } = await import("@/app/actions/admin-delete");
+      const res = await deleteAdminItem({
+        entity: "enquiries",
+        id: booking.id,
+      });
+      if (!res.success) {
+        throw new Error(res.error || "Failed to delete enquiry");
+      }
+      toast.success("Enquiry deleted successfully");
+      router.push("/admin/enquiries");
+    } catch (err: any) {
+      console.error("Delete enquiry error:", err);
+      toast.error(err.message || "Failed to delete enquiry");
+    } finally {
+      setDeleting(false);
+      setConfirmDeleteOpen(false);
+    }
+  };
+
   const customer = booking.profiles;
   const design = booking.designs;
 
-  const waCleanPhone = customer?.phone?.replace(/\D/g, "") || "";
-  const waNumber = waCleanPhone.startsWith("91")
-    ? waCleanPhone
-    : `91${waCleanPhone}`;
+  // Extract customer info from profile or notes/message fallback
+  let extractedName = booking.customer_name || customer?.name;
+  let extractedPhone = booking.customer_phone || customer?.phone;
+  let extractedDesignTitle = design?.title;
+
+  const notesText = `${booking.admin_notes || ""} ${booking.message || ""}`;
+
+  if (!extractedName || extractedName.trim().toLowerCase() === "customer" || extractedName.trim().toLowerCase() === "guest visitor") {
+    const nameMatch =
+      notesText.match(/Client:\s*([^.]+)\./i) ||
+      notesText.match(/My Name:\s*([^\n]+)/i) ||
+      notesText.match(/Name:\s*([^.\n]+)/i);
+    if (nameMatch && nameMatch[1]?.trim()) {
+      extractedName = nameMatch[1].trim();
+    }
+  }
+
+  if (!extractedPhone || extractedPhone.trim() === "") {
+    const phoneMatch =
+      notesText.match(/Phone:\s*([0-9+\s-]{8,15})/i) ||
+      notesText.match(/Contact:\s*([0-9+\s-]{8,15})/i);
+    if (phoneMatch && phoneMatch[1]?.trim()) {
+      extractedPhone = phoneMatch[1].trim();
+    }
+  }
+
+  if (!extractedDesignTitle) {
+    const designMatch =
+      notesText.match(/Design:\s*([^.(]+)/i) ||
+      notesText.match(/Enquired design:\s*([^.\n]+)/i);
+    if (designMatch && designMatch[1]?.trim()) {
+      extractedDesignTitle = designMatch[1].trim();
+    }
+  }
+
+  const clientName = extractedName || "Customer";
+  const clientPhone = extractedPhone || "";
+  const rawCleanPhone = clientPhone.replace(/\D/g, "");
+  const waNumber = rawCleanPhone
+    ? rawCleanPhone.startsWith("91")
+      ? rawCleanPhone
+      : `91${rawCleanPhone}`
+    : "917373876879";
+
   const waText = encodeURIComponent(
-    `Hello ${customer?.name || ""}, regarding your Sri Kubera Decor enquiry #${booking.enquiry_id} for "${design?.title || "stage decoration"}": `
+    `Hello ${clientName}, regarding your Sri Kubera Decor enquiry #${booking.enquiry_id} for "${extractedDesignTitle || "stage decoration"}": `
   );
 
   return (
@@ -243,10 +309,10 @@ export function EnquiryDetailClient({
 
         {/* Quick Contact & Action Buttons */}
         <div className="flex flex-wrap items-center gap-2">
-          {customer?.phone && (
+          {rawCleanPhone && (
             <>
               <a
-                href={`tel:${customer.phone}`}
+                href={`tel:${rawCleanPhone}`}
                 className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 rounded-xl border border-emerald-300 bg-emerald-50 text-[#0B4A3A] text-xs font-semibold hover:bg-emerald-100 transition-colors"
               >
                 <Phone size={14} />
@@ -293,8 +359,32 @@ export function EnquiryDetailClient({
               </>
             )}
           </button>
+
+          <button
+            type="button"
+            onClick={() => setConfirmDeleteOpen(true)}
+            className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold transition-colors cursor-pointer"
+            title="Delete Enquiry"
+          >
+            <Trash2 size={14} />
+            Delete
+          </button>
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={confirmDeleteOpen}
+        onClose={() => {
+          if (!deleting) setConfirmDeleteOpen(false);
+        }}
+        onConfirm={handleDeleteEnquiry}
+        isLoading={deleting}
+        isDestructive={true}
+        title={`Delete Enquiry #${booking.enquiry_id}`}
+        description={`Delete enquiry #${booking.enquiry_id}? This cannot be undone.`}
+        confirmLabel="Delete Permanently"
+        cancelLabel="Cancel"
+      />
 
       {/* Date Clash Warning Banner */}
       {clashingBookings.length > 0 && (
@@ -570,21 +660,21 @@ export function EnquiryDetailClient({
               <div>
                 <span className="text-[#5D6D67] block text-[11px]">Full Name</span>
                 <span className="font-bold text-sm text-[#17211E]">
-                  {customer?.name || "Customer"}
+                  {clientName}
                 </span>
               </div>
 
               <div>
                 <span className="text-[#5D6D67] block text-[11px]">Phone Number</span>
                 <span className="font-semibold text-xs text-[#0B4A3A]">
-                  {customer?.phone || "—"}
+                  {clientPhone || "No phone provided"}
                 </span>
               </div>
 
               <div>
                 <span className="text-[#5D6D67] block text-[11px]">Email Address</span>
                 <span className="text-xs text-[#17211E] break-all">
-                  {customer?.email || "—"}
+                  {booking.customer_email || customer?.email || "—"}
                 </span>
               </div>
 
@@ -647,6 +737,15 @@ export function EnquiryDetailClient({
                     Edit design catalog entry &rarr;
                   </Link>
                 )}
+              </div>
+            ) : extractedDesignTitle ? (
+              <div className="p-3.5 bg-[#FAF6EC] rounded-xl border border-[#E8E2D5] space-y-1">
+                <p className="font-serif font-bold text-sm text-[#17211E]">
+                  {extractedDesignTitle}
+                </p>
+                <p className="text-[11px] text-[#5D6D67]">
+                  Enquired from gallery catalogue (Title match)
+                </p>
               </div>
             ) : (
               <p className="text-xs text-[#5D6D67] italic">

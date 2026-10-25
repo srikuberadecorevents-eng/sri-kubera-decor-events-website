@@ -29,11 +29,19 @@ test.describe("Public & Customer-Facing Functionality Smoke Tests", () => {
     const waHref = await waButton.getAttribute("href");
     expect(waHref).toContain("wa.me");
 
-    // Footer Links
+    // Footer Links & Socials
     const footer = page.locator("footer");
     await expect(footer).toBeVisible();
     await expect(footer.getByRole("link", { name: /Gallery/i }).first()).toBeVisible();
     await expect(footer.getByRole("link", { name: /Contact/i }).first()).toBeVisible();
+    await expect(footer.locator('a[aria-label="Sri Kubera on Facebook"]')).toHaveAttribute(
+      "href",
+      "https://www.facebook.com/share/1DwDL6AmHE/"
+    );
+    await expect(footer.locator('a[aria-label="Sri Kubera on Instagram"]')).toHaveAttribute(
+      "href",
+      "https://www.instagram.com/sri_kubera_decor/"
+    );
   });
 
   test("2. Mobile Menu Drawer Navigation", async ({ page, isMobile }) => {
@@ -365,9 +373,12 @@ test.describe("Public & Customer-Facing Functionality Smoke Tests", () => {
     await page.goto("/gallery/bday-01");
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 
-    // Gated item (beyond the first 6 teaser designs, e.g. /gallery/mar-01) redirects guest to login
-    await page.goto("/gallery/mar-01");
-    await expect(page).toHaveURL(/\/login\?redirectTo=.+mar-01/);
+    // Gated item (beyond the first 6 teaser designs, e.g. /gallery/mar-01) displays in-page sign-in prompt for guest (HTTP 200, no redirect to login)
+    const gatedRes = await page.goto("/gallery/mar-01");
+    expect(gatedRes?.status()).toBe(200);
+    expect(page.url()).toContain("/gallery/mar-01");
+    await expect(page.getByRole("heading", { name: /Sign In to View This Design/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Sign In to Unlock/i })).toBeVisible();
 
     // 4. Login and signup pages respect redirect parameter
     await page.goto("/login?redirect=/gallery");

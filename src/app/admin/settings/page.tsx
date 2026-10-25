@@ -63,8 +63,8 @@ export default function AdminSettingsPage() {
           setWorkingHours(data.working_hours || "");
           setNotificationEmail(data.notification_email || "");
           setTagline(data.tagline || "");
-          setFacebook(data.social_links?.facebook || "");
-          setInstagram(data.social_links?.instagram || "");
+          setFacebook(data.social_links?.facebook || "https://www.facebook.com/share/1DwDL6AmHE/");
+          setInstagram(data.social_links?.instagram || "https://www.instagram.com/sri_kubera_decor/");
           setYoutube(data.social_links?.youtube || "");
         }
       } catch (err) {
@@ -79,6 +79,37 @@ export default function AdminSettingsPage() {
 
   const handleSaveBusiness = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate email format if provided
+    if (notificationEmail.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(notificationEmail.trim())) {
+        toast.error("Please enter a valid notification email address");
+        return;
+      }
+    }
+
+    // Validate URLs if provided
+    const validateUrl = (url: string, name: string) => {
+      if (!url.trim()) return true;
+      try {
+        const parsed = new URL(url.trim());
+        if (!["http:", "https:"].includes(parsed.protocol)) {
+          toast.error(`${name} must start with http:// or https://`);
+          return false;
+        }
+        return true;
+      } catch {
+        toast.error(`Please enter a valid URL for ${name}`);
+        return false;
+      }
+    };
+
+    if (!validateUrl(mapLink, "Google Maps link")) return;
+    if (!validateUrl(instagram, "Instagram URL")) return;
+    if (!validateUrl(facebook, "Facebook URL")) return;
+    if (!validateUrl(youtube, "YouTube URL")) return;
+
     setSavingBusiness(true);
     try {
       const { error } = await supabase.from("business_settings").upsert({
@@ -281,6 +312,14 @@ export default function AdminSettingsPage() {
           <p className="text-[11px] text-[#5D6D67] mt-1">
             New customer enquiries and requirements will be delivered to this address via Resend.
           </p>
+          {!notificationEmail.trim() && (
+            <div className="mt-2 p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-amber-800 text-xs flex items-center gap-2">
+              <span className="font-bold">⚠️ Warning:</span>
+              <span>
+                Notification email is not set. System will fall back to server environment variable (RESEND_ADMIN_EMAIL or default).
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Address & Maps */}

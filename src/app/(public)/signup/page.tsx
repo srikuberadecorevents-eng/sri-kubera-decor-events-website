@@ -68,7 +68,7 @@ function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo =
-    searchParams.get("redirectTo") || searchParams.get("redirect") || "/enquiries";
+    searchParams.get("redirectTo") || searchParams.get("redirect") || "/dashboard";
   const supabase = createClient();
 
   const {
@@ -124,69 +124,136 @@ function SignupForm() {
     setLoading(true);
     setAuthError(null);
 
-    const origin =
-      typeof window !== "undefined" && window.location.origin
-        ? window.location.origin
-        : process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-
-    const { data: authData, error } = await supabase.auth.signUp({
-      email: data.email,
-      password: data.password,
-      options: {
-        data: {
-          name: data.name,
-          phone: data.phone,
-          gender: data.gender,
-          address: data.address || "",
-          pincode: data.pincode || "",
-          role: "user",
+    try {
+      const { data: authData, error } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: {
+            name: data.name,
+            phone: data.phone,
+            gender: data.gender,
+            address: data.address || "",
+            pincode: data.pincode || "",
+            role: "user",
+          },
         },
-        emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
-      },
-    });
+      });
 
-    if (error) {
-      setAuthError(error.message);
-      toast.error(error.message);
-      setLoading(false);
-      return;
-    }
+      // Handle Supabase auth errors cleanly
+      if (error) {
+        let msg = error.message;
+        const lower = error.message.toLowerCase();
+        if (
+          lower.includes("already registered") ||
+          lower.includes("already in use") ||
+          lower.includes("user already exists") ||
+          (error as any).status === 422
+        ) {
+          msg = "An account with this email already exists. Please sign in instead.";
+        } else if (
+          lower.includes("weak") ||
+          lower.includes("password should be") ||
+          lower.includes("least 8 characters")
+        ) {
+          msg = "Password is too weak. Please use at least 8 characters with uppercase letters and numbers.";
+        } else if (
+          lower.includes("failed to fetch") ||
+          lower.includes("network") ||
+          lower.includes("fetcherror")
+        ) {
+          msg = "Unable to connect to the server. Please check your internet connection and try again.";
+        }
 
-    // If email confirmation is disabled in Supabase, user has active session immediately
-    if (authData.session) {
+        setAuthError(msg);
+        toast.error(msg);
+        setLoading(false);
+        return;
+      }
+
+      // If user already exists, Supabase returns empty identities array under email enumeration protection
+      if (authData.user && authData.user.identities && authData.user.identities.length === 0) {
+        const msg = "An account with this email already exists. Please sign in instead.";
+        setAuthError(msg);
+        toast.error(msg);
+        setLoading(false);
+        return;
+      }
+
+      // With email confirmation disabled, user already has a session
+      let session = authData.session;
+      if (!session && authData.user) {
+        // Fallback: establish session immediately if signUp returned user without session
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: data.email,
+          password: data.password,
+        });
+        if (!signInError && signInData?.session) {
+          session = signInData.session;
+        }
+      }
+
+      const activeUser = session?.user || authData.user;
+
+      if (activeUser) {
+        // 3. Start the "Post Your Requirement" popup timer (2-3 minutes) from this exact signup timestamp
+        try {
+          const now = Date.now().toString();
+          localStorage.setItem(`req_timer_start_${activeUser.id}`, now);
+          localStorage.removeItem(`req_prompt_dismissed_${activeUser.id}`);
+          localStorage.removeItem(`req_submitted_${activeUser.id}`);
+        } catch (storageErr) {
+          console.warn("Requirement timer init note:", storageErr);
+        }
+
+        // 2. Ensure profile row exists immediately in profiles table
+        try {
+          await supabase.from("profiles").upsert(
+            {
+              id: activeUser.id,
+              email: data.email,
+              name: data.name,
+              phone: data.phone,
+              gender: data.gender,
+              address: data.address || "",
+              pincode: data.pincode || "",
+              role: "user",
+            },
+            { onConflict: "id" }
+          );
+        } catch (profileErr) {
+          console.warn("Direct profile upsert fallback note:", profileErr);
+        }
+      }
+
       setIsSuccess(true);
-      toast.success("Account created successfully! Welcome.");
+      toast.success("Account created successfully! Welcome to Sri Kubera.");
+
+      // 1. Redirect straight to the intended page (the redirect param, or /dashboard)
       setTimeout(() => {
         router.push(redirectTo);
         router.refresh();
-      }, 700);
-      return;
-    }
-
-    // If user already exists, Supabase returns empty identities array
-    if (authData.user && authData.user.identities && authData.user.identities.length === 0) {
-      const msg = "An account with this email already exists. Please sign in.";
+      }, 500);
+    } catch (err: any) {
+      console.error("Signup exception:", err);
+      const isNetwork =
+        err?.message?.includes("fetch") ||
+        err?.name === "TypeError" ||
+        (typeof navigator !== "undefined" && !navigator.onLine);
+      const msg = isNetwork
+        ? "Unable to connect to the server. Please check your internet connection and try again."
+        : err?.message || "An unexpected error occurred during signup. Please try again.";
       setAuthError(msg);
       toast.error(msg);
       setLoading(false);
-      return;
     }
-
-    setIsSuccess(true);
-    toast.success("Account created! If confirmation is required, please check your inbox.");
-    setTimeout(() => {
-      router.push(
-        redirectTo && redirectTo !== "/enquiries"
-          ? `/login?redirectTo=${encodeURIComponent(redirectTo)}`
-          : "/login"
-      );
-    }, 700);
   };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 animate-fade-up" noValidate>
       {authError && (
         <div
+          id="signup-error-alert"
           role="alert"
           className="p-3.5 rounded-xl bg-red-50 border border-red-200 flex items-center gap-2.5 text-red-700 text-xs font-medium animate-fade-up"
         >

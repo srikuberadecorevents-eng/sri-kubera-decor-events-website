@@ -444,9 +444,12 @@ export default function AdminDesignsPage() {
     }
   };
 
+  const [isBulkDelete, setIsBulkDelete] = useState(false);
+
   // Hard Delete Handler (guarded)
   const requestHardDelete = async (design: Design) => {
     setActiveDesign(design);
+    setIsBulkDelete(false);
 
     // Check if enquiries exist
     const { count } = await supabase
@@ -458,38 +461,54 @@ export default function AdminDesignsPage() {
     setHardDeleteDialogOpen(true);
   };
 
+  const requestBulkHardDelete = () => {
+    if (selectedIds.length === 0) return;
+    setIsBulkDelete(true);
+    setActiveDesign(null);
+    setEnquiryCountForActive(0);
+    setHardDeleteDialogOpen(true);
+  };
+
   const executeHardDelete = async () => {
-    if (!activeDesign) return;
-    if (enquiryCountForActive > 0) {
-      toast.error(
-        `Cannot permanently delete: ${enquiryCountForActive} booking enquiries reference this design.`
-      );
+    const targetIds = isBulkDelete
+      ? selectedIds
+      : activeDesign
+      ? [activeDesign.id]
+      : [];
+
+    if (targetIds.length === 0) {
+      setHardDeleteDialogOpen(false);
       return;
     }
 
     setDeleting(true);
+    const prevDesigns = [...designs];
+    setDesigns((prev) => prev.filter((d) => !targetIds.includes(d.id)));
+
     try {
-      // 1. Delete associated design_images
-      await supabase.from("design_images").delete().eq("design_id", activeDesign.id);
+      const { deleteAdminItem } = await import("@/app/actions/admin-delete");
+      const res = await deleteAdminItem({
+        entity: "designs",
+        ids: targetIds,
+        force: true,
+      });
 
-      // 2. Delete the design row
-      const { error } = await supabase
-        .from("designs")
-        .delete()
-        .eq("id", activeDesign.id);
+      if (!res.success) {
+        throw new Error(res.error || "Failed to delete design");
+      }
 
-      if (error) throw error;
-
-      const { revalidatePublicPages } = await import("@/app/actions/revalidate");
-      await revalidatePublicPages(["/", "/gallery"]);
-
-      toast.success(`Permanently deleted "${activeDesign.title}"`);
+      toast.success(
+        targetIds.length === 1
+          ? `Permanently deleted design`
+          : `Permanently deleted ${targetIds.length} designs`
+      );
+      setSelectedIds([]);
       setHardDeleteDialogOpen(false);
       setActiveDesign(null);
-      fetchDesigns();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Hard delete error:", err);
-      toast.error("Failed to delete design");
+      setDesigns(prevDesigns);
+      toast.error(err.message || "Failed to delete design");
     } finally {
       setDeleting(false);
     }
@@ -653,11 +672,11 @@ export default function AdminDesignsPage() {
               </button>
               <button
                 type="button"
-                onClick={() => handleBulkStatusChange("archived")}
-                disabled={bulkActionLoading}
-                className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition-colors"
+                onClick={requestBulkHardDelete}
+                disabled={bulkActionLoading || deleting}
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors cursor-pointer"
               >
-                Archive Selected
+                Delete Selected ({selectedIds.length})
               </button>
 
               {/* Set Category dropdown */}
@@ -830,14 +849,25 @@ export default function AdminDesignsPage() {
                         </button>
                       </>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => requestArchive(design)}
-                        className="min-h-[36px] px-2.5 py-1.5 text-[#5D6D67] hover:text-amber-700 hover:bg-amber-50 text-xs font-medium rounded-xl flex items-center gap-1 transition-colors cursor-pointer"
-                        title="Archive (hide from website)"
-                      >
-                        <Archive size={13} />
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => requestArchive(design)}
+                          className="min-h-[36px] px-2.5 py-1.5 text-[#5D6D67] hover:text-amber-700 hover:bg-amber-50 text-xs font-medium rounded-xl flex items-center gap-1 transition-colors cursor-pointer"
+                          title="Archive (hide from website)"
+                        >
+                          <Archive size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => requestHardDelete(design)}
+                          className="min-h-[36px] px-2.5 py-1.5 text-red-600 hover:bg-red-50 text-xs font-medium rounded-xl flex items-center gap-1 transition-colors cursor-pointer"
+                          title="Delete design"
+                          aria-label={`Delete ${design.title}`}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -976,14 +1006,25 @@ export default function AdminDesignsPage() {
                               </button>
                             </>
                           ) : (
-                            <button
-                              type="button"
-                              onClick={() => requestArchive(design)}
-                              className="p-1.5 rounded-lg text-[#5D6D67] hover:text-amber-700 hover:bg-amber-50 transition-colors cursor-pointer"
-                              title="Archive design"
-                            >
-                              <Archive size={15} />
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => requestArchive(design)}
+                                className="p-1.5 rounded-lg text-[#5D6D67] hover:text-amber-700 hover:bg-amber-50 transition-colors cursor-pointer"
+                                title="Archive design"
+                              >
+                                <Archive size={15} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => requestHardDelete(design)}
+                                className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                                title="Delete design"
+                                aria-label={`Delete ${design.title}`}
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>
@@ -1087,7 +1128,7 @@ export default function AdminDesignsPage() {
         isLoading={deleting}
       />
 
-      {/* Hard Delete Confirmation Dialog (requires typed confirmation "DELETE" and guarded if enquiries exist) */}
+      {/* Hard Delete Confirmation Dialog */}
       <ConfirmDialog
         isOpen={hardDeleteDialogOpen}
         onClose={() => {
@@ -1095,15 +1136,20 @@ export default function AdminDesignsPage() {
           setActiveDesign(null);
         }}
         onConfirm={executeHardDelete}
-        title="Permanently Delete Design"
-        description={
-          enquiryCountForActive > 0
-            ? `Cannot permanently delete: This design has ${enquiryCountForActive} customer enquiry record(s) linked to it. It must remain in the Archive to maintain historical records.`
-            : `Are you absolutely sure you want to permanently delete "${activeDesign?.title}" and all its photo records? This action CANNOT be reversed.`
+        title={
+          isBulkDelete
+            ? `Delete ${selectedIds.length} Selected Designs`
+            : `Delete Design: ${activeDesign?.title}`
         }
-        confirmLabel="Delete Forever"
+        description={
+          isBulkDelete
+            ? `Are you sure you want to permanently delete ${selectedIds.length} designs? Associated photos will be deleted from storage. This cannot be undone.`
+            : enquiryCountForActive > 0
+            ? `Warning: This design is linked to ${enquiryCountForActive} customer enquiry record(s). Deleting it will unlink those records and remove photos from storage. This cannot be undone.`
+            : `Delete design "${activeDesign?.title}"? Associated photos will be removed from storage. This cannot be undone.`
+        }
+        confirmLabel={deleting ? "Deleting..." : "Delete Permanently"}
         isDestructive
-        typedConfirmationText={enquiryCountForActive > 0 ? undefined : "DELETE"}
         isLoading={deleting}
       />
     </div>

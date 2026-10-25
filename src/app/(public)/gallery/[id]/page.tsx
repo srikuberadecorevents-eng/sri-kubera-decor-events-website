@@ -1,15 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import {
   CheckCircle,
   ArrowLeft,
   Calendar,
   Sparkles,
   Phone,
+  Lock,
+  LogIn,
+  UserPlus,
 } from "lucide-react";
 import { createPublicClient, createClient } from "@/lib/supabase/server";
 import { INITIAL_DESIGNS } from "@/data/initialDesigns";
+import { getPublicFeaturedDesigns, isFeaturedDesign } from "@/lib/designs";
 import type { Design } from "@/types";
 import ResponsiveImage from "@/components/ui/ResponsiveImage";
 import GalleryEnquireButton from "@/components/ui/GalleryEnquireButton";
@@ -18,7 +22,8 @@ import WhatsAppEnquireDetailButton from "@/components/ui/WhatsAppEnquireDetailBu
 export const revalidate = 300;
 
 export async function generateStaticParams() {
-  return INITIAL_DESIGNS.map((d) => ({ id: d.id }));
+  const featured = await getPublicFeaturedDesigns();
+  return featured.map((d) => ({ id: d.id }));
 }
 
 interface Props {
@@ -53,7 +58,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     };
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://srikuberadecor.com";
+  const isPublic = await isFeaturedDesign(design.id);
+  const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://srikuberadecorevents.in";
   const rawImage = design.image_url || "/images/hero.jpg";
   const ogImageUrl = rawImage.startsWith("http")
     ? rawImage
@@ -71,6 +77,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     alternates: {
       canonical: canonicalUrl,
     },
+    robots: isPublic
+      ? { index: true, follow: true }
+      : { index: false, follow: true },
     openGraph: {
       title: `${design.title} | Sri Kubera Decor Puducherry`,
       description,
@@ -104,18 +113,84 @@ export default async function DesignDetailPage({ params }: Props) {
   if (!design) notFound();
 
   // Authentication & Gating:
-  // First 6 designs are available as public teaser previews for SEO and sharing.
-  // Gated designs beyond the first 6 require sign-in.
+  // First 6 designs are available with full content for guests and search engines (HTTP 200).
+  // Gated designs beyond the first 6 display an in-page sign-in prompt for guests (HTTP 200, no redirect).
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const teaserIds = INITIAL_DESIGNS.slice(0, 6).map((d) => d.id);
-  const isTeaser = teaserIds.includes(design.id);
+  const isPublicFeatured = await isFeaturedDesign(design.id);
 
-  if (!user && !isTeaser) {
-    redirect(`/login?redirectTo=${encodeURIComponent(`/gallery/${id}`)}`);
+  if (!user && !isPublicFeatured) {
+    return (
+      <div className="py-12 md:py-16 bg-ivory-100 min-h-[70vh] flex items-center">
+        <div className="page-container max-w-2xl mx-auto">
+          <Link
+            href="/gallery"
+            className="inline-flex items-center gap-2 text-navy-500 hover:text-navy-900 text-sm mb-6 transition-colors font-medium"
+          >
+            <ArrowLeft size={16} />
+            Back to Gallery
+          </Link>
+
+          <div className="luxury-card p-8 md:p-12 text-center border border-gold-300/40 shadow-xl bg-white rounded-3xl">
+            <div className="w-16 h-16 rounded-2xl bg-gold-500/15 border border-gold-400/40 flex items-center justify-center mx-auto mb-5 shadow-sm">
+              <Lock size={30} className="text-gold-600" />
+            </div>
+
+            <div className="section-eyebrow justify-center mb-2">
+              <Sparkles size={14} className="text-bronze" />
+              <span>Exclusive Member Collection</span>
+            </div>
+
+            <h1
+              className="text-2xl sm:text-3xl font-bold text-navy-950 mb-3"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
+              Sign In to View This Design
+            </h1>
+
+            <div className="w-16 h-0.5 bg-gradient-to-r from-transparent via-gold-400 to-transparent mx-auto mb-4" />
+
+            <p className="text-navy-600 text-sm sm:text-base leading-relaxed mb-8 max-w-lg mx-auto">
+              This signature stage decoration is part of our private member portfolio.
+              Sign in or create a complimentary account to explore full photos,
+              customized pricing, and direct booking options.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-3.5 justify-center mb-8">
+              <Link
+                href={`/login?redirectTo=${encodeURIComponent(`/gallery/${design.id}`)}`}
+                className="btn-gold py-3.5 px-8 text-sm font-bold flex items-center justify-center gap-2 shadow-md"
+              >
+                <LogIn size={16} />
+                <span>Sign In to Unlock</span>
+              </Link>
+
+              <Link
+                href={`/signup?redirectTo=${encodeURIComponent(`/gallery/${design.id}`)}`}
+                className="btn-outline py-3.5 px-8 text-sm font-bold flex items-center justify-center gap-2"
+              >
+                <UserPlus size={16} />
+                <span>Create Free Account</span>
+              </Link>
+            </div>
+
+            <div className="pt-6 border-t border-ivory-300 text-xs text-navy-500 flex flex-col sm:flex-row items-center justify-center gap-4">
+              <span>Need immediate assistance?</span>
+              <a
+                href="tel:7373876879"
+                className="inline-flex items-center gap-1.5 font-bold text-navy-800 hover:text-gold-700 transition-colors"
+              >
+                <Phone size={13} className="text-bronze" />
+                <span>Call 7373876879 / 9486064769</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const inclusions = design.inclusions
@@ -218,3 +293,4 @@ export default async function DesignDetailPage({ params }: Props) {
     </div>
   );
 }
+

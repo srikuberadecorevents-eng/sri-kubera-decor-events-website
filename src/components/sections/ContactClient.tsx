@@ -88,13 +88,26 @@ export default function ContactClientPage() {
     },
   });
 
-  const onSubmit = (data: FormData) => {
+  const onSubmit = async (data: FormData) => {
     const formattedOccasion = selectedOccasion || data.occasion || "Celebration";
     const dateText = data.eventDate ? `\nEvent Date: ${data.eventDate}` : "";
     const venueText = data.venue ? `\nVenue/Area: ${data.venue}` : "";
     const customNotes = data.message ? `\nNotes: ${data.message}` : "";
 
     const fullMessage = `Hello Sri Kubera Decor & Events,\nMy Name: ${data.name}\nContact: ${data.phone}\nOccasion: ${formattedOccasion}${dateText}${venueText}${customNotes}\n\nPlease share design options and availability.`;
+
+    // Persist enquiry to Supabase in background
+    fetch("/api/enquiry/whatsapp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        client_name: data.name,
+        client_phone: data.phone,
+        event_date: data.eventDate || null,
+        venue: data.venue || null,
+        message: fullMessage,
+      }),
+    }).catch((err) => console.warn("Failed to persist contact enquiry:", err));
 
     const encoded = encodeURIComponent(fullMessage);
     window.open(`https://wa.me/${WA_NUMBER}?text=${encoded}`, "_blank");

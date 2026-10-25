@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import {
   Sparkles,
   Search,
-  Filter,
   Download,
   Phone,
   MessageCircle,
@@ -19,12 +19,19 @@ import {
   Loader2,
   CheckCircle2,
   FileText,
+  Trash2,
+  CheckSquare,
+  Square,
+  AlertTriangle,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { EmptyState } from "@/components/admin/EmptyState";
 import { TableSkeleton } from "@/components/admin/Skeleton";
 import { Modal } from "@/components/admin/Modal";
+import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
+import { useRealtimeBadges } from "@/components/admin/RealtimeBadgesProvider";
+import { deleteAdminItem } from "@/app/actions/admin-delete";
 import type { Requirement, RequirementStatus } from "@/types";
 import toast from "react-hot-toast";
 
@@ -52,14 +59,25 @@ export default function AdminRequirementsPage() {
   const [editNotes, setEditNotes] = useState("");
   const [savingLead, setSavingLead] = useState(false);
 
+  // Selection & Delete state
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<Requirement | null>(null);
+  const [isBulkDelete, setIsBulkDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  // Lightbox for reference image
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+
   const supabase = createClient();
+  const { refresh: refreshBadges } = useRealtimeBadges();
 
   const fetchRequirements = useCallback(async () => {
     setLoading(true);
     try {
       let query = supabase
         .from("requirements")
-        .select("*")
+        .select("id, name, email, phone, event_type, event_date, place, message, status, admin_notes, created_at, budget, image_url")
         .order("created_at", { ascending: false });
 
       if (statusFilter !== "all") {
@@ -73,9 +91,27 @@ export default function AdminRequirementsPage() {
         );
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
+      const { data: initialData, error } = await query;
+      let data = initialData;
+      if (error && (error as any).code === "42703") {
+        const fallbackQuery = supabase
+          .from("requirements")
+          .select("id, name, email, phone, event_type, event_date, place, message, status, admin_notes, created_at")
+          .order("created_at", { ascending: false });
+
+        if (statusFilter !== "all") {
+          fallbackQuery.eq("status", statusFilter);
+        }
+
+        const fallbackRes = await fallbackQuery;
+        if (fallbackRes.error) throw fallbackRes.error;
+        data = fallbackRes.data as any;
+      } else if (error) {
+        throw error;
+      }
+
       setRequirements(data || []);
+      setSelectedIds([]);
       setCurrentPage(1);
     } catch (err) {
       console.error("Fetch requirements error:", err);
@@ -83,10 +119,10 @@ export default function AdminRequirementsPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, search]);
+  }, [supabase, statusFilter, search]);
 
   useEffect(() => {
-    const timer = setTimeout(fetchRequirements, 300);
+    const timer = setTimeout(fetchRequirements, 250);
     return () => clearTimeout(timer);
   }, [fetchRequirements]);
 
@@ -99,14 +135,93 @@ export default function AdminRequirementsPage() {
     startIndex + ITEMS_PER_PAGE
   );
 
-  // Open Lead Detail Modal
+  // Selection handlers
+  const handleSelectAll = () => {
+    if (selectedIds.length === displayedRequirements.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(displayedRequirements.map((r) => r.id));
+    }
+  };
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  };
+
+  // Open single delete
+  const handleOpenSingleDelete = (lead: Requirement, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setItemToDelete(lead);
+    setIsBulkDelete(false);
+    setConfirmDeleteOpen(true);
+  };
+
+  // Open bulk delete
+  const handleOpenBulkDelete = () => {
+    if (selectedIds.length === 0) return;
+    setIsBulkDelete(true);
+    setItemToDelete(null);
+    setConfirmDeleteOpen(true);
+  };
+
+  // Execute delete with optimistic update & rollback
+  const executeDelete = async () => {
+    setDeleting(true);
+    const targetIds = isBulkDelete
+      ? selectedIds
+      : itemToDelete
+      ? [itemToDelete.id]
+      : [];
+
+    if (targetIds.length === 0) {
+      setDeleting(false);
+      setConfirmDeleteOpen(false);
+      return;
+    }
+
+    const previousRequirements = [...requirements];
+    setRequirements((prev) => prev.filter((r) => !targetIds.includes(r.id)));
+
+    try {
+      const res = await deleteAdminItem({
+        entity: "requirements",
+        ids: targetIds,
+      });
+
+      if (!res.success) {
+        throw new Error(res.error || "Failed to delete lead");
+      }
+
+      toast.success(
+        targetIds.length === 1
+          ? "Requirement lead deleted successfully"
+          : `${targetIds.length} requirement leads deleted successfully`
+      );
+
+      setSelectedIds([]);
+      setConfirmDeleteOpen(false);
+      setItemToDelete(null);
+      if (selectedLead && targetIds.includes(selectedLead.id)) {
+        setSelectedLead(null);
+      }
+      await refreshBadges();
+    } catch (err: any) {
+      console.error("Delete requirement error:", err);
+      setRequirements(previousRequirements);
+      toast.error(err.message || "Failed to delete lead. Rolled back changes.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const openLeadDetail = (lead: Requirement) => {
     setSelectedLead(lead);
     setEditStatus(lead.status);
     setEditNotes(lead.admin_notes || "");
   };
 
-  // Save Lead Updates
   const handleSaveLead = async () => {
     if (!selectedLead) return;
     setSavingLead(true);
@@ -120,48 +235,58 @@ export default function AdminRequirementsPage() {
         .eq("id", selectedLead.id);
 
       if (error) throw error;
-      toast.success("Lead status and notes updated");
+
+      toast.success("Lead status updated successfully");
+      setRequirements((prev) =>
+        prev.map((r) =>
+          r.id === selectedLead.id
+            ? { ...r, status: editStatus, admin_notes: editNotes.trim() || null }
+            : r
+        )
+      );
       setSelectedLead(null);
-      fetchRequirements();
-    } catch (err) {
-      console.error("Update requirement error:", err);
-      toast.error("Failed to update lead");
+      await refreshBadges();
+    } catch (err: any) {
+      console.error("Update lead error:", err);
+      toast.error(err.message || "Failed to save lead updates");
     } finally {
       setSavingLead(false);
     }
   };
 
-  // Export CSV with UTF-8 BOM
+  // CSV Export with UTF-8 BOM
   const exportToCSV = () => {
     if (!requirements.length) {
-      toast.error("No leads to export.");
+      toast.error("No requirement leads to export.");
       return;
     }
 
     const headers = [
-      "Name",
+      "Customer Name",
       "Phone",
       "Email",
+      "Place / Location",
       "Event Type",
       "Event Date",
-      "Place",
-      "Message",
+      "Budget",
       "Status",
+      "Submission Date",
+      "Customer Message",
       "Admin Notes",
-      "Created At",
     ];
 
     const rows = requirements.map((r) => [
-      `"${(r.name || "").replace(/"/g, '""')}"`,
-      `"${r.phone || ""}"`,
+      `"${r.name.replace(/"/g, '""')}"`,
+      `"${r.phone}"`,
       `"${r.email || ""}"`,
+      `"${r.place.replace(/"/g, '""')}"`,
       `"${(r.event_type || "").replace(/"/g, '""')}"`,
       `"${r.event_date ? new Date(r.event_date).toLocaleDateString("en-IN") : ""}"`,
-      `"${(r.place || "").replace(/"/g, '""')}"`,
-      `"${(r.message || "").replace(/"/g, '""')}"`,
+      `"${r.budget || ""}"`,
       `"${r.status}"`,
+      `"${new Date(r.created_at).toLocaleDateString("en-IN")}"`,
+      `"${(r.message || "").replace(/"/g, '""')}"`,
       `"${(r.admin_notes || "").replace(/"/g, '""')}"`,
-      `"${new Date(r.created_at).toLocaleString("en-IN")}"`,
     ]);
 
     const csvContent =
@@ -181,7 +306,7 @@ export default function AdminRequirementsPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success("Leads CSV exported successfully");
+    toast.success("Leads CSV downloaded successfully");
   };
 
   return (
@@ -197,15 +322,28 @@ export default function AdminRequirementsPage() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={exportToCSV}
-          disabled={loading || requirements.length === 0}
-          className="inline-flex items-center gap-2 min-h-[44px] px-4 py-2.5 rounded-xl border border-[#E8E2D5] bg-white hover:bg-[#FAF6EC] text-[#17211E] text-xs font-semibold shadow-xs transition-colors disabled:opacity-50 cursor-pointer shrink-0"
-        >
-          <Download size={15} />
-          Export Leads CSV
-        </button>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {selectedIds.length > 0 && (
+            <button
+              type="button"
+              onClick={handleOpenBulkDelete}
+              className="inline-flex items-center gap-2 min-h-[44px] px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+            >
+              <Trash2 size={15} />
+              Delete Selected ({selectedIds.length})
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={exportToCSV}
+            disabled={loading || requirements.length === 0}
+            className="inline-flex items-center gap-2 min-h-[44px] px-4 py-2.5 rounded-xl border border-[#E8E2D5] bg-white hover:bg-[#FAF6EC] text-[#17211E] text-xs font-semibold shadow-xs transition-colors disabled:opacity-50 cursor-pointer shrink-0"
+          >
+            <Download size={15} />
+            Export Leads CSV
+          </button>
+        </div>
       </div>
 
       {/* Filter and Search Bar */}
@@ -262,7 +400,7 @@ export default function AdminRequirementsPage() {
         </div>
       </div>
 
-      {/* Leads Content: Mobile Stacked Cards, Desktop Table */}
+      {/* Leads Content */}
       {loading ? (
         <TableSkeleton rows={6} />
       ) : displayedRequirements.length === 0 ? (
@@ -288,25 +426,44 @@ export default function AdminRequirementsPage() {
                 `Hello ${lead.name}, regarding your stage decoration requirement for ${lead.event_type || "your celebration"} at ${lead.place}: `
               );
 
+              const isSelected = selectedIds.includes(lead.id);
+
               return (
                 <div
                   key={lead.id}
-                  className="bg-white rounded-2xl border border-[#E8E2D5] p-4 shadow-xs space-y-3 cursor-pointer hover:bg-[#FAF6EC]/40"
+                  className={`bg-white rounded-2xl border p-4 shadow-xs space-y-3 cursor-pointer transition-colors ${
+                    isSelected ? "border-[#0B4A3A] bg-[#FAF6EC]/40" : "border-[#E8E2D5]"
+                  }`}
                   onClick={() => openLeadDetail(lead)}
                 >
                   <div className="flex items-center justify-between">
-                    <div>
+                    <div className="flex items-center gap-2.5">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleSelect(lead.id);
+                        }}
+                        className="text-[#0B4A3A] p-0.5"
+                        aria-label="Select lead"
+                      >
+                        {isSelected ? (
+                          <CheckSquare size={18} className="text-[#0B4A3A]" />
+                        ) : (
+                          <Square size={18} className="text-[#5D6D67]" />
+                        )}
+                      </button>
                       <h3 className="font-bold text-sm text-[#17211E]">
                         {lead.name}
                       </h3>
-                      <p className="text-xs text-[#0B4A3A] font-semibold mt-0.5">
-                        {lead.phone}
-                      </p>
                     </div>
                     <StatusBadge status={lead.status} size="sm" />
                   </div>
 
                   <div className="space-y-1 text-xs text-[#5D6D67]">
+                    <p className="text-xs text-[#0B4A3A] font-semibold">
+                      {lead.phone}
+                    </p>
                     <p className="flex items-center gap-1.5">
                       <MapPin size={12} className="text-[#0B4A3A]" />
                       <strong>Place:</strong> {lead.place}
@@ -317,46 +474,65 @@ export default function AdminRequirementsPage() {
                       </p>
                     )}
                     {lead.event_date && (
-                      <p className="flex items-center gap-1.5">
+                      <p className="flex items-center gap-1.5 text-[#0B4A3A] font-medium">
                         <Calendar size={12} />
-                        <strong>Date:</strong> {new Date(lead.event_date).toLocaleDateString("en-IN")}
+                        Event: {new Date(lead.event_date).toLocaleDateString("en-IN")}
+                      </p>
+                    )}
+                    {lead.budget && (
+                      <p className="text-[#0B4A3A] font-semibold">
+                        Budget: {lead.budget}
                       </p>
                     )}
                   </div>
 
-                  {lead.message && (
-                    <p className="text-xs text-[#17211E] bg-[#FAF6EC] p-2.5 rounded-xl border border-[#E8E2D5]/70 line-clamp-2">
-                      &ldquo;{lead.message}&rdquo;
-                    </p>
-                  )}
-
+                  {/* Actions */}
                   <div
-                    className="flex items-center justify-between pt-2 border-t border-[#E8E2D5]"
+                    className="flex items-center justify-between pt-2 border-t border-[#E8E2D5] text-xs"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <span className="text-[11px] text-[#5D6D67]">
+                    <span className="text-[#5D6D67] text-[11px]">
                       {new Date(lead.created_at).toLocaleDateString("en-IN")}
                     </span>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       <a
                         href={`tel:${lead.phone}`}
-                        className="p-2 rounded-lg bg-emerald-50 text-[#0B4A3A] border border-emerald-200"
-                        title="Call"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-50 text-[#0B4A3A] border border-emerald-200 font-semibold"
+                        title="Call lead"
                         aria-label={`Call ${lead.name}`}
                       >
-                        <Phone size={14} />
+                        <Phone size={13} />
+                        Call
                       </a>
                       <a
                         href={`https://wa.me/${waNumber}?text=${waText}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="p-2 rounded-lg bg-[#25D366]/10 text-[#075E54] border border-[#25D366]/30"
-                        title="WhatsApp"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#25D366]/10 text-[#075E54] border border-[#25D366]/30 font-semibold"
+                        title="Send WhatsApp message"
                         aria-label={`WhatsApp ${lead.name}`}
                       >
-                        <MessageCircle size={14} />
+                        <MessageCircle size={13} />
+                        WhatsApp
                       </a>
+                      <button
+                        type="button"
+                        onClick={() => openLeadDetail(lead)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#0B4A3A] text-white font-medium"
+                      >
+                        <Eye size={13} />
+                        Review
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => handleOpenSingleDelete(lead, e)}
+                        className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 border border-red-200 cursor-pointer"
+                        title="Delete lead"
+                        aria-label="Delete lead"
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -370,12 +546,27 @@ export default function AdminRequirementsPage() {
               <table className="w-full text-left text-sm">
                 <thead className="bg-[#FAF6EC]/80 border-b border-[#E8E2D5] text-xs font-semibold text-[#17211E] uppercase tracking-wider">
                   <tr>
+                    <th className="py-3 px-3 w-10 text-center">
+                      <button
+                        type="button"
+                        onClick={handleSelectAll}
+                        className="text-[#0B4A3A] hover:text-[#0E5A47] cursor-pointer"
+                        aria-label="Select all requirements"
+                      >
+                        {selectedIds.length > 0 &&
+                        selectedIds.length === displayedRequirements.length ? (
+                          <CheckSquare size={17} className="text-[#0B4A3A]" />
+                        ) : (
+                          <Square size={17} className="text-[#5D6D67]" />
+                        )}
+                      </button>
+                    </th>
                     <th className="py-3 px-4">Lead Customer</th>
                     <th className="py-3 px-4">Event &amp; Place</th>
                     <th className="py-3 px-4">Event Date</th>
                     <th className="py-3 px-4">Submitted</th>
                     <th className="py-3 px-4">Status</th>
-                    <th className="py-3 px-4 text-right">Quick Contact</th>
+                    <th className="py-3 px-4 text-right">Quick Contact &amp; Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E8E2D5]">
@@ -389,12 +580,34 @@ export default function AdminRequirementsPage() {
                       `Hello ${lead.name}, regarding your stage decoration requirement for ${lead.event_type || "your event"} at ${lead.place}: `
                     );
 
+                    const isSelected = selectedIds.includes(lead.id);
+
                     return (
                       <tr
                         key={lead.id}
                         onClick={() => openLeadDetail(lead)}
-                        className="hover:bg-[#FAF6EC]/50 transition-colors cursor-pointer"
+                        className={`hover:bg-[#FAF6EC]/50 transition-colors cursor-pointer ${
+                          isSelected ? "bg-[#FAF6EC]/60" : ""
+                        }`}
                       >
+                        <td
+                          className="py-3.5 px-3 text-center"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => handleToggleSelect(lead.id)}
+                            className="text-[#0B4A3A] p-1 cursor-pointer"
+                            aria-label={`Select lead ${lead.name}`}
+                          >
+                            {isSelected ? (
+                              <CheckSquare size={17} className="text-[#0B4A3A]" />
+                            ) : (
+                              <Square size={17} className="text-[#5D6D67]/80" />
+                            )}
+                          </button>
+                        </td>
+
                         <td className="py-3.5 px-4">
                           <p className="font-semibold text-sm text-[#17211E]">
                             {lead.name}
@@ -445,30 +658,41 @@ export default function AdminRequirementsPage() {
                           <div className="flex items-center justify-end gap-1.5">
                             <a
                               href={`tel:${lead.phone}`}
-                              className="p-1.5 rounded-lg text-[#0B4A3A] hover:bg-emerald-50 transition-colors"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[#0B4A3A] bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors text-xs font-semibold"
                               title="Call lead"
                               aria-label={`Call ${lead.name}`}
                             >
-                              <Phone size={15} />
+                              <Phone size={13} />
+                              <span>Call</span>
                             </a>
                             <a
                               href={`https://wa.me/${waNumber}?text=${waText}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="p-1.5 rounded-lg text-[#25D366] hover:bg-[#25D366]/10 transition-colors"
-                              title="WhatsApp lead"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[#075E54] bg-[#25D366]/10 hover:bg-[#25D366]/20 border border-[#25D366]/30 transition-colors text-xs font-semibold"
+                              title="Send WhatsApp message"
                               aria-label={`WhatsApp ${lead.name}`}
                             >
-                              <MessageCircle size={15} />
+                              <MessageCircle size={13} />
+                              <span>WhatsApp</span>
                             </a>
                             <button
                               type="button"
                               onClick={() => openLeadDetail(lead)}
-                              className="p-1.5 rounded-lg text-[#5D6D67] hover:text-[#17211E] hover:bg-[#FAF6EC] transition-colors"
-                              title="View details & notes"
-                              aria-label="View lead details"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[#17211E] bg-[#FAF6EC] hover:bg-[#E8E2D5] border border-[#E8E2D5] transition-colors text-xs font-medium cursor-pointer"
+                              title="Review lead details"
                             >
-                              <Eye size={15} />
+                              <Eye size={13} />
+                              <span>Review</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => handleOpenSingleDelete(lead, e)}
+                              className="p-1.5 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer"
+                              title="Delete requirement"
+                              aria-label={`Delete requirement from ${lead.name}`}
+                            >
+                              <Trash2 size={15} />
                             </button>
                           </div>
                         </td>
@@ -585,39 +809,46 @@ export default function AdminRequirementsPage() {
               </div>
             </div>
 
-            {/* Uploaded Reference Photo */}
+            {/* Uploaded Reference Photo (Lightbox enabled) */}
             {selectedLead.image_url && (
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="block text-xs font-semibold uppercase text-[#17211E]">
                     Uploaded Inspiration Photo
                   </label>
-                  <a
-                    href={selectedLead.image_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-[#0B4A3A] font-semibold hover:underline flex items-center gap-1"
+                  <button
+                    type="button"
+                    onClick={() => setLightboxUrl(selectedLead.image_url || null)}
+                    className="text-xs text-[#0B4A3A] font-semibold hover:underline flex items-center gap-1 cursor-pointer"
                   >
-                    Open original photo &rarr;
-                  </a>
+                    <Eye size={13} />
+                    View Fullscreen Lightbox
+                  </button>
                 </div>
-                <div className="relative aspect-[16/9] max-w-md rounded-2xl overflow-hidden border border-[#E8E2D5] bg-[#FAF6EC] shadow-xs">
-                  <img
+                <div
+                  className="relative aspect-video rounded-xl overflow-hidden border border-[#E8E2D5] bg-[#FAF6EC] cursor-pointer group"
+                  onClick={() => setLightboxUrl(selectedLead.image_url || null)}
+                >
+                  <Image
                     src={selectedLead.image_url}
-                    alt="Customer inspiration reference"
-                    className="w-full h-full object-cover"
+                    alt="Customer inspiration photo"
+                    fill
+                    className="object-cover group-hover:scale-105 transition-transform"
                   />
+                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-medium gap-1.5">
+                    <Eye size={16} /> Click to expand
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* Requirement Message */}
+            {/* Customer Message */}
             {selectedLead.message && (
               <div>
-                <label className="block text-xs font-semibold uppercase text-[#17211E] mb-1">
-                  Customer Requirements Message:
+                <label className="block text-xs font-semibold uppercase text-[#17211E] mb-1.5">
+                  Customer Requirement Message
                 </label>
-                <div className="p-3.5 bg-white rounded-xl border border-[#E8E2D5] text-xs leading-relaxed text-[#17211E]">
+                <div className="p-3.5 rounded-xl bg-white border border-[#E8E2D5] text-xs text-[#17211E] whitespace-pre-wrap leading-relaxed">
                   {selectedLead.message}
                 </div>
               </div>
@@ -629,13 +860,13 @@ export default function AdminRequirementsPage() {
                 htmlFor="lead-status-select"
                 className="block text-xs font-semibold uppercase text-[#17211E] mb-1.5"
               >
-                Lead Status
+                Lead Follow-up Status
               </label>
               <select
                 id="lead-status-select"
                 value={editStatus}
                 onChange={(e) => setEditStatus(e.target.value as RequirementStatus)}
-                className="w-full min-h-[44px] text-xs px-3.5 py-2 rounded-xl border border-[#E8E2D5] bg-white text-[#17211E] focus:outline-none focus:ring-2 focus:ring-[#0B4A3A]"
+                className="w-full min-h-[44px] text-xs px-3.5 py-2 rounded-xl border border-[#E8E2D5] text-[#17211E] focus:outline-none focus:ring-2 focus:ring-[#0B4A3A]"
               >
                 {REQUIREMENT_STATUSES.map((s) => (
                   <option key={s.value} value={s.value}>
@@ -645,55 +876,124 @@ export default function AdminRequirementsPage() {
               </select>
             </div>
 
-            {/* Admin Internal Notes */}
+            {/* Internal Admin Follow-up Notes */}
             <div>
               <label
-                htmlFor="lead-notes"
+                htmlFor="lead-admin-notes"
                 className="block text-xs font-semibold uppercase text-[#17211E] mb-1.5"
               >
-                Admin Follow-up Notes
+                Internal Notes &amp; Call Summary
               </label>
               <textarea
-                id="lead-notes"
+                id="lead-admin-notes"
                 rows={3}
-                placeholder="e.g. Called customer on WhatsApp, shared photos of Wedding stage 25000-1. They will visit shop tomorrow."
                 value={editNotes}
                 onChange={(e) => setEditNotes(e.target.value)}
-                className="w-full text-xs p-3 rounded-xl border border-[#E8E2D5] bg-white text-[#17211E] focus:outline-none focus:ring-2 focus:ring-[#0B4A3A] leading-relaxed"
+                placeholder="Record customer discussion, quotation provided, or venue details..."
+                className="w-full text-xs p-3 rounded-xl border border-[#E8E2D5] text-[#17211E] focus:outline-none focus:ring-2 focus:ring-[#0B4A3A]"
               />
             </div>
 
             {/* Modal Actions */}
-            <div className="pt-4 border-t border-[#E8E2D5] flex items-center justify-end gap-3">
+            <div className="flex items-center justify-between pt-3 border-t border-[#E8E2D5]">
               <button
                 type="button"
-                onClick={() => setSelectedLead(null)}
-                className="min-h-[44px] px-4 py-2 text-xs font-medium text-[#17211E] bg-white border border-[#E8E2D5] rounded-xl hover:bg-[#FAF6EC]"
+                onClick={() => {
+                  setItemToDelete(selectedLead);
+                  setIsBulkDelete(false);
+                  setConfirmDeleteOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
               >
-                Cancel
+                <Trash2 size={14} />
+                Delete Lead
               </button>
-              <button
-                type="button"
-                onClick={handleSaveLead}
-                disabled={savingLead}
-                className="min-h-[44px] px-5 py-2 text-xs font-semibold text-white bg-[#0B4A3A] hover:bg-[#0E5A47] rounded-xl flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
-              >
-                {savingLead ? (
-                  <>
-                    <Loader2 size={14} className="animate-spin text-[#C9A24B]" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 size={14} />
-                    Save Changes
-                  </>
-                )}
-              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedLead(null)}
+                  disabled={savingLead}
+                  className="px-4 py-2 text-xs font-semibold text-[#5D6D67] hover:text-[#17211E] rounded-xl hover:bg-[#FAF6EC] transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveLead}
+                  disabled={savingLead}
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-[#0B4A3A] hover:bg-[#0E5A47] text-white text-xs font-semibold shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {savingLead ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin text-[#C9A24B]" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 size={14} />
+                      Save Status
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </Modal>
       )}
+
+      {/* Lightbox Modal for reference image */}
+      {lightboxUrl && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setLightboxUrl(null)}
+            className="absolute top-4 right-4 text-white hover:text-red-400 p-2 rounded-full bg-black/40 min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
+            aria-label="Close Lightbox"
+          >
+            <X size={24} />
+          </button>
+          <div
+            className="relative max-w-4xl max-h-[85vh] w-full h-[80vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Image
+              src={lightboxUrl}
+              alt="Requirement inspiration photo"
+              fill
+              className="object-contain"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Delete Dialog */}
+      <ConfirmDialog
+        isOpen={confirmDeleteOpen}
+        onClose={() => {
+          if (!deleting) setConfirmDeleteOpen(false);
+        }}
+        onConfirm={executeDelete}
+        isLoading={deleting}
+        isDestructive={true}
+        title={
+          isBulkDelete
+            ? `Delete ${selectedIds.length} Selected Leads`
+            : `Delete Lead: ${itemToDelete?.name}`
+        }
+        description={
+          isBulkDelete
+            ? `Delete ${selectedIds.length} requirement leads? Associated uploaded reference photos will also be permanently removed from storage. This cannot be undone.`
+            : `Delete requirement lead from "${itemToDelete?.name}"? Any uploaded reference photos will also be deleted from storage. This cannot be undone.`
+        }
+        confirmLabel={deleting ? "Deleting..." : "Delete Permanently"}
+        cancelLabel="Cancel"
+      />
     </div>
   );
 }

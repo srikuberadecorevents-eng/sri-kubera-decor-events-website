@@ -95,6 +95,9 @@ export interface Booking {
   enquiry_id: string;
   user_id: string;
   design_id?: string | null;
+  customer_name?: string | null;
+  customer_phone?: string | null;
+  customer_email?: string | null;
   status: BookingStatus;
   booking_date: string;
   event_date?: string | null;

@@ -159,7 +159,7 @@ export default function Footer() {
           {/* Social icons — brand-accurate SVGs */}
           <div className="flex items-center gap-2">
             <a
-              href="https://instagram.com"
+              href="https://www.instagram.com/sri_kubera_decor/"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Sri Kubera on Instagram"
@@ -168,7 +168,7 @@ export default function Footer() {
               <InstagramIcon />
             </a>
             <a
-              href="https://facebook.com"
+              href="https://www.facebook.com/share/1DwDL6AmHE/"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Sri Kubera on Facebook"

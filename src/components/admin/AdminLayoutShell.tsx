@@ -74,10 +74,22 @@ export function AdminLayoutShell({
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    document.cookie = "test_auth_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
     toast.success("Signed out successfully");
-    router.push("/admin/login");
+    router.replace("/admin/login");
     router.refresh();
   };
+
+  React.useEffect(() => {
+    if (!drawerOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setDrawerOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [drawerOpen]);
 
   const isCurrent = (href: string) => {
     if (href === "/admin") return pathname === "/admin";

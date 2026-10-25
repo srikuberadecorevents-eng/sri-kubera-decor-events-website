@@ -7,9 +7,15 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Premium stage decorations in Puducherry — We Decor Your Dreams.",
     start_url: "/",
     display: "standalone",
-    background_color: "#0B4A3A",
-    theme_color: "#0B4A3A",
+    background_color: "#0E2A22",
+    theme_color: "#0E2A22",
     icons: [
+      {
+        src: "/icon.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "any",
+      },
       {
         src: "/favicon-48x48.png",
         sizes: "48x48",
@@ -19,11 +25,13 @@ export default function manifest(): MetadataRoute.Manifest {
         src: "/icon-192.png",
         sizes: "192x192",
         type: "image/png",
+        purpose: "maskable",
       },
       {
         src: "/icon-512.png",
         sizes: "512x512",
         type: "image/png",
+        purpose: "maskable",
       },
       {
         src: "/apple-touch-icon.png",

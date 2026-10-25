@@ -37,6 +37,7 @@ import { createClient } from "@/lib/supabase/client";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { TableSkeleton } from "@/components/admin/Skeleton";
 import { EmptyState } from "@/components/admin/EmptyState";
+import { deleteAdminItem } from "@/app/actions/admin-delete";
 import type { Testimonial } from "@/types";
 
 function SortableTestimonialItem({
@@ -50,6 +51,8 @@ function SortableTestimonialItem({
   onTogglePublish,
   onDeleteRequest,
   saving,
+  isSelected,
+  onToggleSelect,
 }: {
   t: Testimonial;
   editId: string | null;
@@ -73,6 +76,8 @@ function SortableTestimonialItem({
   onTogglePublish: (t: Testimonial) => void;
   onDeleteRequest: (t: Testimonial) => void;
   saving: boolean;
+  isSelected: boolean;
+  onToggleSelect: (id: string) => void;
 }) {
   const {
     attributes,
@@ -209,6 +214,15 @@ function SortableTestimonialItem({
               <GripVertical size={18} />
             </button>
 
+            {/* Row Checkbox */}
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={() => onToggleSelect(t.id)}
+              aria-label={`Select testimonial from ${t.customer_name}`}
+              className="w-4 h-4 rounded text-[#0B4A3A] focus:ring-[#0B4A3A] border-[#E8E2D5] cursor-pointer shrink-0 mt-1 sm:mt-0"
+            />
+
             <div className="min-w-0 space-y-1">
               <div className="flex items-center gap-2">
                 <span className="font-bold text-sm text-[#17211E]">
@@ -305,6 +319,21 @@ export default function AdminTestimonialsPage() {
   const [itemToDelete, setItemToDelete] = useState<Testimonial | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Bulk selection state
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    setSelectedIds(checked ? testimonials.map((t) => t.id) : []);
+  };
 
   const supabase = createClient();
 
@@ -476,27 +505,65 @@ export default function AdminTestimonialsPage() {
 
   const executeDelete = async () => {
     if (!itemToDelete) return;
+    const target = itemToDelete;
+    const previous = [...testimonials];
+
+    // Optimistic UI update
+    setTestimonials((prev) => prev.filter((t) => t.id !== target.id));
+    setSelectedIds((prev) => prev.filter((id) => id !== target.id));
+    setDeleteDialogOpen(false);
+    setItemToDelete(null);
     setDeleting(true);
+
     try {
-      const { error } = await supabase
-        .from("testimonials")
-        .delete()
-        .eq("id", itemToDelete.id);
+      const res = await deleteAdminItem({
+        entity: "testimonials",
+        id: target.id,
+      });
 
-      if (error) throw error;
+      if (!res.success) {
+        throw new Error(res.error || "Failed to delete review");
+      }
 
-      const { revalidatePublicPages } = await import("@/app/actions/revalidate");
-      await revalidatePublicPages(["/"]);
-
-      toast.success("Review deleted");
-      setDeleteDialogOpen(false);
-      setItemToDelete(null);
-      fetchTestimonials();
-    } catch (err) {
+      toast.success(`Deleted review from "${target.customer_name}"`);
+    } catch (err: any) {
       console.error("Delete review error:", err);
-      toast.error("Failed to delete review");
+      toast.error(err.message || "Failed to delete review");
+      setTestimonials(previous);
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    const count = selectedIds.length;
+    const previous = [...testimonials];
+    const idsToDelete = [...selectedIds];
+
+    // Optimistic UI update
+    setTestimonials((prev) => prev.filter((t) => !idsToDelete.includes(t.id)));
+    setSelectedIds([]);
+    setBulkDeleteOpen(false);
+    setBulkDeleting(true);
+
+    try {
+      const res = await deleteAdminItem({
+        entity: "testimonials",
+        ids: idsToDelete,
+      });
+
+      if (!res.success) {
+        throw new Error(res.error || "Failed to delete reviews");
+      }
+
+      toast.success(`Deleted ${count} client reviews`);
+    } catch (err: any) {
+      console.error("Bulk delete error:", err);
+      toast.error(err.message || "Failed to delete reviews");
+      setTestimonials(previous);
+    } finally {
+      setBulkDeleting(false);
     }
   };
 
@@ -597,13 +664,35 @@ export default function AdminTestimonialsPage() {
 
       {/* Testimonials List */}
       <div className="bg-white rounded-2xl border border-[#E8E2D5] overflow-hidden shadow-xs">
-        <div className="px-5 py-3.5 bg-[#FAF6EC]/60 border-b border-[#E8E2D5] flex items-center justify-between">
-          <span className="text-xs font-semibold uppercase tracking-wider text-[#17211E]">
-            Client Testimonials ({testimonials.length})
-          </span>
-          <span className="text-xs text-[#5D6D67]">
-            Drag handles on the left to reorder
-          </span>
+        <div className="px-5 py-3.5 bg-[#FAF6EC]/60 border-b border-[#E8E2D5] flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              checked={testimonials.length > 0 && selectedIds.length === testimonials.length}
+              onChange={(e) => handleSelectAll(e.target.checked)}
+              aria-label="Select all testimonials"
+              className="w-4 h-4 rounded text-[#0B4A3A] focus:ring-[#0B4A3A] border-[#E8E2D5] cursor-pointer"
+            />
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#17211E]">
+              Client Testimonials ({testimonials.length})
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {selectedIds.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setBulkDeleteOpen(true)}
+                className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-medium flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
+              >
+                <Trash2 size={13} />
+                Delete selected ({selectedIds.length})
+              </button>
+            )}
+            <span className="text-xs text-[#5D6D67] hidden sm:inline">
+              Drag handles on the left to reorder
+            </span>
+          </div>
         </div>
 
         {loading ? (
@@ -636,6 +725,8 @@ export default function AdminTestimonialsPage() {
                     onTogglePublish={handleTogglePublish}
                     onDeleteRequest={handleDeleteRequest}
                     saving={savingEdit}
+                    isSelected={selectedIds.includes(t.id)}
+                    onToggleSelect={toggleSelect}
                   />
                 ))}
               </ul>
@@ -653,10 +744,22 @@ export default function AdminTestimonialsPage() {
         }}
         onConfirm={executeDelete}
         title="Delete Testimonial"
-        description={`Are you sure you want to delete the review from "${itemToDelete?.customer_name}"?`}
+        description={`Are you sure you want to delete the review from "${itemToDelete?.customer_name}"? This cannot be undone.`}
         confirmLabel="Delete Review"
         isDestructive
         isLoading={deleting}
+      />
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={bulkDeleteOpen}
+        onClose={() => setBulkDeleteOpen(false)}
+        onConfirm={handleBulkDelete}
+        title="Delete Selected Reviews"
+        description={`Are you sure you want to delete ${selectedIds.length} client reviews? This cannot be undone.`}
+        confirmLabel={`Delete ${selectedIds.length} Reviews`}
+        isDestructive
+        isLoading={bulkDeleting}
       />
     </div>
   );

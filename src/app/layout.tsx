@@ -60,15 +60,26 @@ export const metadata: Metadata = {
     title: "Sri Kubera Decor & Events — We Decor Your Dreams",
     description:
       "Premium stage decorations for weddings, birthdays, surprise parties, and corporate events in Puducherry.",
+    images: [
+      {
+        url: "/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Sri Kubera Decor & Events Puducherry — Luxury Stage Decoration",
+        type: "image/jpeg",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Sri Kubera Decor & Events",
     description: "Premium stage decorations in Puducherry — We Decor Your Dreams.",
+    images: ["/og-image.jpg"],
   },
   robots: { index: true, follow: true },
   icons: {
     icon: [
+      { url: "/icon.png", sizes: "512x512", type: "image/png" },
       { url: "/favicon-48x48.png", sizes: "48x48", type: "image/png" },
       { url: "/favicon.png", sizes: "48x48", type: "image/png" },
       { url: "/favicon.ico", sizes: "any" },
@@ -76,6 +87,7 @@ export const metadata: Metadata = {
       { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
     apple: [
+      { url: "/apple-icon.png", sizes: "180x180", type: "image/png" },
       { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
     ],
     shortcut: ["/favicon.ico"],
@@ -86,7 +98,7 @@ const jsonLd = {
   "@context": "https://schema.org",
   "@type": "LocalBusiness",
   name: "Sri Kubera Decor & Events",
-  image: "https://srikuberadecorevents.in/assets/marriage-01.jpeg",
+  image: "https://srikuberadecorevents.in/og-image.jpg",
   telephone: "+917373876879",
   url: "https://srikuberadecorevents.in",
   priceRange: "₹₹",
@@ -117,6 +129,10 @@ const jsonLd = {
     opens: "08:00",
     closes: "21:00",
   },
+  sameAs: [
+    "https://www.facebook.com/share/1DwDL6AmHE/",
+    "https://www.instagram.com/sri_kubera_decor/",
+  ],
 };
 
 export default function RootLayout({
@@ -131,10 +147,12 @@ export default function RootLayout({
       data-scroll-behavior="smooth"
     >
       <head>
+        <link rel="icon" href="/icon.png" sizes="512x512" type="image/png" />
         <link rel="icon" href="/favicon-48x48.png" sizes="48x48" type="image/png" />
         <link rel="icon" href="/favicon.png" sizes="48x48" type="image/png" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+        <link rel="apple-touch-icon" href="/apple-icon.png" sizes="180x180" type="image/png" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" type="image/png" />
         <link rel="preconnect" href="https://deuwslifdqwrijiahltm.supabase.co" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://deuwslifdqwrijiahltm.supabase.co" />
         <script
