@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Playfair_Display, Noto_Sans_Tamil } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "react-hot-toast";
+import GoogleAdsTag from "@/components/layout/GoogleAdsTag";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -161,6 +162,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen flex flex-col">
+        <GoogleAdsTag />
         <Toaster
           position="top-right"
           toastOptions={{

@@ -67,23 +67,46 @@ export default function PrivacyPolicyPage() {
                 <li>Send automated booking confirmations and invoices.</li>
               </ul>
               <p className="text-navy-600 mt-2">
-                We never sell, rent, or trade your personal data to any third-party marketing services.
+                We never sell, rent, or trade your personal data.
               </p>
             </section>
 
             <section>
               <h2 className="font-bold text-base text-navy-950 mb-2 flex items-center gap-2">
                 <CheckCircle2 size={16} className="text-bronze" />
-                3. Customer Consent &amp; Communication
+                3. Cookies and Advertising
               </h2>
               <p className="text-navy-600">
-                By submitting an enquiry or registering an account, you consent to receive communication from our decoration planning team via WhatsApp, SMS, or phone call strictly regarding your event booking.
+                This site uses cookies and similar technologies, including Google Ads cookies, to
+                measure visits from our advertisements and improve advertising. You can learn how
+                Google uses data at{" "}
+                <a
+                  href="https://policies.google.com/technologies/partner-sites"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-emerald-800 underline"
+                >
+                  Google&apos;s partner sites policy
+                </a>
+                .
+              </p>
+            </section>
+
+            <section>
+              <h2 className="font-bold text-base text-navy-950 mb-2 flex items-center gap-2">
+                <CheckCircle2 size={16} className="text-bronze" />
+                4. Customer Consent &amp; Communication
+              </h2>
+              <p className="text-navy-600">
+                By submitting an enquiry or registering an account, you consent to receive
+                communication from our decoration planning team via WhatsApp, SMS, or phone call
+                strictly regarding your event booking.
               </p>
             </section>
 
             <section>
               <h2 className="font-bold text-base text-navy-950 mb-2">
-                4. Contact Information
+                5. Contact Information
               </h2>
               <p className="text-navy-600">
                 For questions regarding your account or data removal, contact us directly:

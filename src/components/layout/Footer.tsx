@@ -187,6 +187,12 @@ export default function Footer() {
             </a>
           </div>
         </div>
+        <p className="mt-4 text-center text-xs text-ivory-500">
+          This site uses cookies, including Google Ads cookies, to measure ad visits.{" "}
+          <Link href="/privacy" className="underline hover:text-gold-400">
+            Privacy Policy
+          </Link>
+        </p>
       </div>
     </footer>
   );

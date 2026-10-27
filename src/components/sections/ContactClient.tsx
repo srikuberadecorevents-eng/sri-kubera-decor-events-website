@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -73,13 +74,14 @@ const FAQS = [
 ];
 
 export default function ContactClientPage() {
+  const router = useRouter();
   const [selectedOccasion, setSelectedOccasion] = useState(OCCASIONS[0]);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
-    reset,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -96,23 +98,33 @@ export default function ContactClientPage() {
 
     const fullMessage = `Hello Sri Kubera Decor & Events,\nMy Name: ${data.name}\nContact: ${data.phone}\nOccasion: ${formattedOccasion}${dateText}${venueText}${customNotes}\n\nPlease share design options and availability.`;
 
-    // Persist enquiry to Supabase in background
-    fetch("/api/enquiry/whatsapp", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        client_name: data.name,
-        client_phone: data.phone,
-        event_date: data.eventDate || null,
-        venue: data.venue || null,
-        message: fullMessage,
-      }),
-    }).catch((err) => console.warn("Failed to persist contact enquiry:", err));
+    setSubmitError(null);
+    try {
+      const response = await fetch("/api/enquiry/whatsapp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_name: data.name,
+          client_phone: data.phone,
+          event_date: data.eventDate || null,
+          venue: data.venue || null,
+          message: fullMessage,
+        }),
+      });
+      const result = await response.json();
 
-    const encoded = encodeURIComponent(fullMessage);
-    window.open(`https://wa.me/${WA_NUMBER}?text=${encoded}`, "_blank");
-    toast.success("Opening WhatsApp with your inquiry details.");
-    reset();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Failed to send your inquiry.");
+      }
+
+      router.push("/thank-you");
+    } catch (error) {
+      console.error("Contact enquiry submission error:", error);
+      const message =
+        error instanceof Error ? error.message : "Failed to send your inquiry. Please try again.";
+      setSubmitError(message);
+      toast.error(message);
+    }
   };
 
   const toggleFaq = (index: number) => {
@@ -330,12 +342,17 @@ export default function ContactClientPage() {
                     Send Event Details Directly
                   </h2>
                   <p className="text-sm text-[#5D6D67] mt-2 leading-relaxed">
-                    Select your occasion and enter details below. Clicking send opens WhatsApp
-                    with your pre-formatted enquiry ready for immediate pricing confirmation.
+                    Share your event details and we will follow up within 24 hours. You can also
+                    reach us directly by phone or WhatsApp after submitting.
                   </p>
                 </div>
 
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
+                  {submitError && (
+                    <p role="alert" className="text-sm text-red-600">
+                      {submitError}
+                    </p>
+                  )}
                   {/* Occasion Selector Chips */}
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-[#06261E] mb-3">
@@ -456,7 +473,7 @@ export default function ContactClientPage() {
                       className="btn-gold w-full sm:flex-1 py-4 px-6 text-sm flex items-center justify-center gap-2 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <MessageCircle size={18} />
-                      <span>{isSubmitting ? "Opening WhatsApp..." : "Send via WhatsApp"}</span>
+                      <span>{isSubmitting ? "Submitting..." : "Send Event Details"}</span>
                     </button>
 
                     <a

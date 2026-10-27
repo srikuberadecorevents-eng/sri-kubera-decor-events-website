@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -55,8 +56,7 @@ const occasions = [
 ] as const;
 
 export default function PostRequirementSection() {
-  const [submitted, setSubmitted] = useState(false);
-  const [submissionData, setSubmissionData] = useState<FormData | null>(null);
+  const router = useRouter();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
@@ -66,7 +66,6 @@ export default function PostRequirementSection() {
     register,
     handleSubmit,
     setValue,
-    reset,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({ resolver: zodResolver(schema) });
 
@@ -132,11 +131,6 @@ export default function PostRequirementSection() {
         throw new Error(res.error || "Failed to submit your requirement.");
       }
 
-      setSubmissionData(data);
-      setSubmitted(true);
-      reset();
-      setPhotoPreview(null);
-
       // Record requirement submission to prevent future popup prompts
       try {
         localStorage.setItem("req_submitted", "true");
@@ -155,29 +149,13 @@ export default function PostRequirementSection() {
       } catch {
         // Silently continue
       }
+
+      router.push("/thank-you");
     } catch (err: unknown) {
       console.error("Requirement submission error:", err);
       const msg = err instanceof Error ? err.message : "Failed to submit. Please try again or call us directly.";
       setSubmitError(msg);
     }
-  };
-
-  const handleOpenWhatsApp = () => {
-    if (!submissionData) return;
-    const text = [
-      `*New Decoration Requirement*`,
-      `-----------------------------`,
-      `Name: ${submissionData.name}`,
-      `Phone: ${submissionData.phone}`,
-      `Place: ${submissionData.place}`,
-      submissionData.event_type ? `Occasion: ${submissionData.event_type}` : null,
-      submissionData.event_date ? `Event Date: ${submissionData.event_date}` : null,
-      submissionData.message ? `Requirements: ${submissionData.message}` : null,
-    ]
-      .filter(Boolean)
-      .join("\n");
-
-    window.open(`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(text)}`, "_blank");
   };
 
   return (
@@ -316,45 +294,6 @@ export default function PostRequirementSection() {
                   2-Minute Form
                 </span>
               </div>
-            {submitted ? (
-              /* Success state */
-              <div className="text-center py-8 animate-fade-up">
-                <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-5">
-                  <CheckCircle2 size={32} className="text-emerald-400" />
-                </div>
-                <h3
-                  className="text-2xl font-bold text-white mb-3"
-                  style={{ fontFamily: "var(--font-display)" }}
-                >
-                  Requirement Submitted!
-                </h3>
-                <p className="text-[#FAF6EC]/80 text-sm leading-relaxed mb-6 max-w-md mx-auto">
-                  Thank you! Your requirement has been saved into our system. We will contact you
-                  shortly on {submissionData?.phone}. You can also connect immediately on WhatsApp.
-                </p>
-
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                  <button
-                    type="button"
-                    onClick={handleOpenWhatsApp}
-                    className="btn-gold flex items-center gap-2"
-                  >
-                    <MessageCircle size={18} />
-                    Chat on WhatsApp Now
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSubmitted(false);
-                      setSubmissionData(null);
-                    }}
-                    className="inline-flex items-center gap-2 px-6 py-3 rounded-full border border-white/30 text-white hover:bg-white/10 text-sm font-semibold transition"
-                  >
-                    Submit Another Requirement
-                  </button>
-                </div>
-              </div>
-            ) : (
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
                 {submitError && (
                   <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center gap-3 text-red-200 text-sm">
@@ -648,7 +587,6 @@ export default function PostRequirementSection() {
                   Your requirement will be sent directly to Sri Kubera Decor &amp; Events. No registration needed.
                 </p>
               </form>
-            )}
             </div>
           </div>
         </div>
